@@ -1,0 +1,11 @@
+{
+  "name": "expenzo-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "EXPENZO - Intelligent Personal Finance Management Platform",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "dev": "cd frontend && npm run dev",
+    "test": "cd frontend && npm test"
+  }
+}
