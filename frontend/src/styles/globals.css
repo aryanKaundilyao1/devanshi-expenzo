@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-app: #F8FAFC;
+    --bg-surface: #FFFFFF;
+    --bg-surface-subtle: #F1F5F9;
+    --border-subtle: #E2E8F0;
+    --border-strong: #CBD5E1;
+    --text-main: #0F172A;
+    --text-muted: #64748B;
+    --text-subtle: #94A3B8;
+
+    --brand-primary: #16A34A;
+    --brand-primary-hover: #15803D;
+    --brand-primary-light: #DCFCE7;
+    --brand-primary-subtle: #F0FDF4;
+
+    --color-warning: #F59E0B;
+    --color-warning-subtle: #FEF3C7;
+    --color-danger: #DC2626;
+    --color-danger-subtle: #FEE2E2;
+    --color-success: #16A34A;
+    --color-success-subtle: #DCFCE7;
+    --color-info: #3B82F6;
+    --color-info-subtle: #DBEAFE;
+  }
+
+  .dark {
+    --bg-app: #0B1220;
+    --bg-surface: #111C30;
+    --bg-surface-subtle: #1E293B;
+    --border-subtle: #1E293B;
+    --border-strong: #334155;
+    --text-main: #F8FAFC;
+    --text-muted: #94A3B8;
+    --text-subtle: #64748B;
+
+    --brand-primary: #16A34A;
+    --brand-primary-hover: #22C55E;
+    --brand-primary-light: #14532D;
+    --brand-primary-subtle: #064E3B;
+
+    --color-warning: #F59E0B;
+    --color-warning-subtle: #451A03;
+    --color-danger: #EF4444;
+    --color-danger-subtle: #450A0A;
+    --color-success: #22C55E;
+    --color-success-subtle: #052E16;
+    --color-info: #60A5FA;
+    --color-info-subtle: #172554;
+  }
+
+  * {
+    border-color: var(--border-subtle);
+  }
+
+  body {
+    background-color: var(--bg-app);
+    color: var(--text-main);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom scrollbars for data tables and sidebars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
