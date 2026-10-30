@@ -81,3 +81,4 @@ This allows executing all 19 tables, indexes, RLS policies, and RPC functions in
 - **TypeScript:** `tsc -b` passes cleanly with 0 type errors.
 - **Production Build:** Vite production bundle generated successfully in 2.06s.
 - **Auth Store:** Hardened to handle graceful profile loading and mock test sandboxing without unhandled network exceptions.
+
