@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { AIChatConversation, AIChatMessage } from '@/types/finance';
 import { processFinancialQuery } from '@/features/ai/intents/intentRegistry';
 import { useFinanceStore } from '@/store/useFinanceStore';
+import { serviceFactory } from '@/services/serviceFactory';
 
 interface AIChatState {
   conversations: AIChatConversation[];
@@ -153,18 +154,35 @@ export const useAIChatStore = create<AIChatState>((set, get) => {
       set({ conversations: updatedConvs, isProcessing: true });
       persistConversations(activePersona, updatedConvs);
 
-      // Process query client-side against canonical finance store state
-      const financeState = useFinanceStore.getState();
-      const result = processFinancialQuery(text, financeState);
-
-      const assistantMsg: AIChatMessage = {
-        id: `msg_a_${Date.now()}`,
-        sender: 'assistant',
-        content: result.textResponse,
-        timestamp: new Date().toISOString(),
-        card: result.card,
-        intent: result.intentId,
-      };
+      // Process query via backend AI service or deterministic engine fallback
+      let assistantMsg: AIChatMessage;
+      try {
+        const aiService = serviceFactory.getAIService();
+        const serverResult = await aiService.processPrompt(text);
+        if (serverResult && serverResult.text) {
+          assistantMsg = {
+            id: `msg_a_${Date.now()}`,
+            sender: 'assistant',
+            content: serverResult.text,
+            timestamp: new Date().toISOString(),
+            card: serverResult.structuredCard || (serverResult as any).card,
+            intent: serverResult.intent,
+          };
+        } else {
+          throw new Error('No server response');
+        }
+      } catch {
+        const financeState = useFinanceStore.getState();
+        const result = processFinancialQuery(text, financeState);
+        assistantMsg = {
+          id: `msg_a_${Date.now()}`,
+          sender: 'assistant',
+          content: result.textResponse,
+          timestamp: new Date().toISOString(),
+          card: result.card,
+          intent: result.intentId,
+        };
+      }
 
       const finalConvs = get().conversations.map((conv) => {
         if (conv.id === chatId) {

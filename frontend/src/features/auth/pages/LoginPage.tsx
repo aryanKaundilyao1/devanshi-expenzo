@@ -36,7 +36,7 @@ export function LoginPage() {
   const [personaDialogOpen, setPersonaDialogOpen] = useState(false);
   const [simulatedNotice, setSimulatedNotice] = useState<string | null>(null);
 
-  const { loginSimulated, onboardingCompleted } = useAuthStore();
+  const { loginSimulated, signInWithSupabase, onboardingCompleted } = useAuthStore();
 
   const {
     register,
@@ -54,7 +54,12 @@ export function LoginPage() {
 
   const onSubmit = async (data: LoginFormData) => {
     setSimulatedNotice(null);
-    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    const res = await signInWithSupabase(data.email, data.password);
+    if (!res.success && res.error) {
+      setSimulatedNotice(res.error);
+      return;
+    }
 
     loginSimulated(data.email);
 

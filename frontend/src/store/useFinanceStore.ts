@@ -44,6 +44,11 @@ import {
   DEFAULT_NOTIFICATION_PREFERENCES,
 } from '@/services/fixtures/seedData';
 import { evaluateDeterministicNotifications } from '@/features/notifications/utils/notificationGenerator';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { apiFinanceService, apiInvestmentService } from '@/services/apiFinanceService';
+import { supabaseBankingService } from '@/features/banking/services/supabaseBankingService';
+import { apiPlannerService } from '@/services/apiPlannerService';
+import { apiSettingsService } from '@/services/apiSettingsService';
 import {
   calculateAccountBalance,
   calculateTotalLiquidCash,
@@ -114,6 +119,7 @@ interface FinanceState {
   updateNotificationPreferences: (prefs: Partial<NotificationPreferences>) => void;
   syncDeterministicNotifications: () => void;
   importWorkspaceData: (data: any) => { success: boolean; message: string };
+  syncWithBackend: () => Promise<void>;
   resetToDemo: () => void;
 
   // Banking Actions (Phase 6)
@@ -295,6 +301,13 @@ export const useFinanceStore = create<FinanceState>((set, get) => {
         persistState(next);
         return next;
       });
+
+      if (isSupabaseConfigured) {
+        apiFinanceService.createTransaction(txData).catch((err) => {
+          console.warn('[useFinanceStore] Background transaction sync to Supabase failed:', err);
+        });
+      }
+
       return newTx;
     },
 
@@ -307,6 +320,12 @@ export const useFinanceStore = create<FinanceState>((set, get) => {
         persistState(next);
         return next;
       });
+
+      if (isSupabaseConfigured) {
+        apiFinanceService.updateTransaction(updatedTx).catch((err) => {
+          console.warn('[useFinanceStore] Background updateTransaction sync failed:', err);
+        });
+      }
     },
 
     deleteTransaction: (id) => {
@@ -318,6 +337,12 @@ export const useFinanceStore = create<FinanceState>((set, get) => {
         persistState(next);
         return next;
       });
+
+      if (isSupabaseConfigured) {
+        apiFinanceService.deleteTransaction(id).catch((err) => {
+          console.warn('[useFinanceStore] Background deleteTransaction sync failed:', err);
+        });
+      }
     },
 
     addCategory: (catData) => {
@@ -388,6 +413,12 @@ export const useFinanceStore = create<FinanceState>((set, get) => {
         persistState(next);
         return next;
       });
+
+      if (isSupabaseConfigured) {
+        apiFinanceService.upsertBudget(budget).catch((err) => {
+          console.warn('[useFinanceStore] Background upsertBudget sync failed:', err);
+        });
+      }
     },
 
     deleteBudget: (id) => {
@@ -411,6 +442,12 @@ export const useFinanceStore = create<FinanceState>((set, get) => {
         persistState(next);
         return next;
       });
+
+      if (isSupabaseConfigured) {
+        apiPlannerService.upsertGoal(goal).catch((err) => {
+          console.warn('[useFinanceStore] Background upsertGoal sync failed:', err);
+        });
+      }
     },
 
     deleteGoal: (id) => {
@@ -456,6 +493,12 @@ export const useFinanceStore = create<FinanceState>((set, get) => {
         persistState(next);
         return next;
       });
+
+      if (isSupabaseConfigured) {
+        apiPlannerService.recordGoalContribution(goalId, amountMinor, note).catch((err) => {
+          console.warn('[useFinanceStore] Background recordGoalContribution sync failed:', err);
+        });
+      }
 
       return { success: true };
     },
@@ -547,6 +590,13 @@ export const useFinanceStore = create<FinanceState>((set, get) => {
         persistState(next);
         return next;
       });
+
+      if (isSupabaseConfigured) {
+        apiInvestmentService.upsertHolding(newHolding).catch((err) => {
+          console.warn('[useFinanceStore] Background addHolding sync failed:', err);
+        });
+      }
+
       return newHolding;
     },
 
@@ -559,6 +609,12 @@ export const useFinanceStore = create<FinanceState>((set, get) => {
         persistState(next);
         return next;
       });
+
+      if (isSupabaseConfigured) {
+        apiInvestmentService.upsertHolding(holding).catch((err) => {
+          console.warn('[useFinanceStore] Background updateHolding sync failed:', err);
+        });
+      }
     },
 
     deleteHolding: (id) => {
@@ -570,6 +626,10 @@ export const useFinanceStore = create<FinanceState>((set, get) => {
         persistState(next);
         return next;
       });
+
+      if (isSupabaseConfigured) {
+        supabase.from('investment_holdings').delete().eq('id', id).then();
+      }
     },
 
     createWatchlist: (name, description) => {
@@ -729,6 +789,13 @@ export const useFinanceStore = create<FinanceState>((set, get) => {
         const nextPrefs = { ...state.notificationPreferences, ...prefs };
         const next = { ...state, notificationPreferences: nextPrefs };
         persistState(next);
+
+        if (isSupabaseConfigured) {
+          apiSettingsService.updatePreferences({ notificationRules: nextPrefs }).catch((err) => {
+            console.warn('[useFinanceStore] Background updatePreferences sync failed:', err);
+          });
+        }
+
         return next;
       });
       get().syncDeterministicNotifications();
@@ -800,6 +867,13 @@ export const useFinanceStore = create<FinanceState>((set, get) => {
         persistState(next);
         return next;
       });
+
+      if (isSupabaseConfigured) {
+        supabaseBankingService.createAccount(accountData).catch((err) => {
+          console.warn('[useFinanceStore] Background createAccount sync failed:', err);
+        });
+      }
+
       return newAccount;
     },
 
@@ -839,6 +913,13 @@ export const useFinanceStore = create<FinanceState>((set, get) => {
         persistState(next);
         return next;
       });
+
+      if (isSupabaseConfigured) {
+        supabaseBankingService.archiveAccount(id).catch((err) => {
+          console.warn('[useFinanceStore] Background archiveAccount sync failed:', err);
+        });
+      }
+
       return { success: true };
     },
 
@@ -1104,6 +1185,30 @@ export const useFinanceStore = create<FinanceState>((set, get) => {
         persistState(next);
         return next;
       });
+    },
+
+    syncWithBackend: async () => {
+      if (!isSupabaseConfigured) return;
+      try {
+        const [accounts, transactions, budgets, holdings] = await Promise.all([
+          apiFinanceService.getAccounts(),
+          apiFinanceService.getTransactions(),
+          apiFinanceService.getBudgets(),
+          apiInvestmentService.getHoldings(),
+        ]);
+
+        if (accounts.length > 0 || transactions.length > 0) {
+          set((state) => ({
+            ...state,
+            accounts,
+            transactions,
+            budgets: budgets.length > 0 ? budgets : state.budgets,
+            holdings: holdings.length > 0 ? holdings : state.holdings,
+          }));
+        }
+      } catch (err) {
+        console.warn('[useFinanceStore] syncWithBackend error:', err);
+      }
     },
 
     resetToDemo: () => {

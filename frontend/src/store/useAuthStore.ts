@@ -3,6 +3,8 @@ import { UserPersona, UserProfile } from '@/types/finance';
 import { INITIAL_USER } from '@/services/fixtures/seedData';
 import { useUIStore } from './useUIStore';
 import { useFinanceStore } from './useFinanceStore';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { formatAuthError } from '@/features/auth/utils/authErrors';
 
 export type FinancialExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
 export type DashboardComplexity = 'simple' | 'standard' | 'advanced';
@@ -26,7 +28,12 @@ interface AuthState {
   preferences: OnboardingPreferences;
   rememberSession: boolean;
 
-  // Actions
+  // Supabase Real Auth Actions
+  signUpWithSupabase: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>;
+  signInWithSupabase: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signOutWithSupabase: () => Promise<void>;
+
+  // Demo & Legacy Prototype Actions
   loginWithDemo: (persona: UserPersona, name?: string) => string;
   loginSimulated: (email: string) => { success: boolean; message: string };
   registerLocalProfile: (name: string, email: string) => void;
@@ -102,6 +109,129 @@ export const useAuthStore = create<AuthState>((set, get) => {
     user: stored?.user ?? INITIAL_USER,
     preferences: stored?.preferences ?? DEFAULT_ONBOARDING_PREFS,
     rememberSession: stored?.rememberSession ?? true,
+
+    signUpWithSupabase: async (email: string, password: string, name: string) => {
+      try {
+        if (!isSupabaseConfigured) {
+          // If Supabase is not configured, fall back to local registration
+          get().registerLocalProfile(name, email);
+          return { success: true };
+        }
+
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: {
+            data: { full_name: name.trim() },
+          },
+        });
+
+        if (error) {
+          return { success: false, error: formatAuthError(error) };
+        }
+
+        if (data?.user) {
+          const newUser: UserProfile = {
+            id: data.user.id,
+            name: name.trim(),
+            email: email.trim(),
+            persona: 'professional',
+            currency: 'INR',
+            monthlyBudgetLimitMinor: 3000000,
+            createdAt: data.user.created_at,
+          };
+
+          // Reset user workspace to clean empty state (no seeded demo transactions)
+          useFinanceStore.setState({
+            user: newUser,
+            accounts: [],
+            transactions: [],
+            budgets: [],
+            goals: [],
+            holdings: [],
+            bills: [],
+          });
+
+          const next = {
+            isAuthenticated: true,
+            onboardingCompleted: false, // New production user goes to onboarding!
+            user: newUser,
+            preferences: {
+              ...get().preferences,
+              demoDataMode: 'empty-demo' as DemoDataMode,
+            },
+          };
+
+          set(next);
+          persistAuth({ ...get(), ...next });
+          return { success: true };
+        }
+
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: formatAuthError(err) };
+      }
+    },
+
+    signInWithSupabase: async (email: string, password: string) => {
+      try {
+        if (!isSupabaseConfigured) {
+          return { success: true };
+        }
+
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+
+        if (error) {
+          return { success: false, error: formatAuthError(error) };
+        }
+
+        if (data?.user) {
+          const authUser = data.user;
+          const fullName = authUser.user_metadata?.full_name || email.split('@')[0];
+
+          // Fetch real profile from Supabase if exists
+          const { data: profileRow } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', authUser.id)
+            .single();
+
+          const loadedUser: UserProfile = {
+            id: authUser.id,
+            name: profileRow?.full_name || fullName,
+            email: authUser.email || email,
+            persona: (profileRow?.persona as any) || 'professional',
+            currency: 'INR',
+            monthlyBudgetLimitMinor: 3000000,
+            createdAt: authUser.created_at,
+          };
+
+          const next = {
+            isAuthenticated: true,
+            onboardingCompleted: true,
+            user: loadedUser,
+          };
+
+          set(next);
+          persistAuth({ ...get(), ...next });
+          return { success: true };
+        }
+
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: formatAuthError(err) };
+      }
+    },
+
+    signOutWithSupabase: async () => {
+      if (isSupabaseConfigured) {
+        await supabase.auth.signOut();
+      }
+      get().logout();
+    },
 
     loginWithDemo: (persona: UserPersona, customName?: string) => {
       const personaInfo = PERSONA_PROFILES[persona];

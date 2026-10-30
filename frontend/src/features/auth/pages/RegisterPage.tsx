@@ -31,7 +31,8 @@ export function RegisterPage() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const registerLocalProfile = useAuthStore((state) => state.registerLocalProfile);
+  const [registerError, setRegisterError] = useState<string | null>(null);
+  const { registerLocalProfile, signUpWithSupabase } = useAuthStore();
 
   const {
     register,
@@ -69,8 +70,12 @@ export function RegisterPage() {
   const strength = getPasswordStrength(passwordValue);
 
   const onSubmit = async (data: RegisterFormData) => {
-    // Process local registration
-    await new Promise((resolve) => setTimeout(resolve, 350));
+    setRegisterError(null);
+    const res = await signUpWithSupabase(data.email, data.password, data.name);
+    if (!res.success && res.error) {
+      setRegisterError(res.error);
+      return;
+    }
     registerLocalProfile(data.name, data.email);
     navigate('/onboarding');
   };
@@ -93,6 +98,11 @@ export function RegisterPage() {
 
       {/* Registration Card */}
       <Card className="p-6 sm:p-8 border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111C30] shadow-sm space-y-4">
+        {registerError && (
+          <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900 text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
+            <span>{registerError}</span>
+          </div>
+        )}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <Input
             label="Full Name"
