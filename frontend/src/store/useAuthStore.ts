@@ -193,11 +193,17 @@ export const useAuthStore = create<AuthState>((set, get) => {
           const fullName = authUser.user_metadata?.full_name || email.split('@')[0];
 
           // Fetch real profile from Supabase if exists
-          const { data: profileRow } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', authUser.id)
-            .single();
+          let profileRow: any = null;
+          try {
+            const { data: pData } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', authUser.id)
+              .single();
+            profileRow = pData;
+          } catch {
+            // Network or offline fallback
+          }
 
           const loadedUser: UserProfile = {
             id: authUser.id,
