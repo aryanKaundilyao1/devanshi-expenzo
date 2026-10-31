@@ -38,6 +38,14 @@ if (supabase?.auth) {
     return { error: null };
   });
 
+  vi.spyOn(supabase.auth, 'resetPasswordForEmail').mockImplementation(async () => {
+    return { data: {}, error: null };
+  });
+
+  vi.spyOn(supabase.auth, 'updateUser').mockImplementation(async () => {
+    return { data: { user: { id: 'test-user-id' } as any }, error: null };
+  });
+
   // Mock Supabase PostgREST table queries in test environment
   vi.spyOn(supabase, 'from').mockImplementation(() => {
     const builder: any = {

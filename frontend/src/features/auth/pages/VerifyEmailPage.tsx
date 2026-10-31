@@ -1,11 +1,26 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { ArrowLeft, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { useAuthStore } from '@/store/useAuthStore';
+import { ArrowLeft, CheckCircle2, ShieldCheck, MailCheck } from 'lucide-react';
 
 export function VerifyEmailPage() {
+  const { isAuthenticated } = useAuthStore();
+  const [verifiedOnline, setVerifiedOnline] = useState(false);
+
+  useEffect(() => {
+    if (isSupabaseConfigured) {
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session) {
+          setVerifiedOnline(true);
+        }
+      });
+    }
+  }, []);
+
   return (
     <div className="space-y-6 animate-in fade-in-50">
       <div className="space-y-2 text-center lg:text-left">
@@ -31,10 +46,12 @@ export function VerifyEmailPage() {
 
         <div className="space-y-1">
           <h3 className="text-base font-bold text-slate-900 dark:text-white">
-            Simulated Verification Active
+            {verifiedOnline ? 'Email Successfully Verified' : 'Simulated Verification Active'}
           </h3>
           <p className="text-xs text-slate-600 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
-            In accordance with our prototype design rules, no external verification emails are dispatched. Your local demonstration session is pre-verified.
+            {verifiedOnline
+              ? 'Your email address has been authenticated with Supabase. Your private financial database workspace is active and ready.'
+              : 'In accordance with our prototype design rules, no external verification emails are dispatched. Your local demonstration session is pre-verified.'}
           </p>
         </div>
 

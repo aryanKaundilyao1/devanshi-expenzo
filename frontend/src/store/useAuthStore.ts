@@ -29,9 +29,15 @@ interface AuthState {
   rememberSession: boolean;
 
   // Supabase Real Auth Actions
-  signUpWithSupabase: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>;
+  signUpWithSupabase: (
+    email: string,
+    password: string,
+    name: string
+  ) => Promise<{ success: boolean; error?: string; requiresEmailConfirmation?: boolean }>;
   signInWithSupabase: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signOutWithSupabase: () => Promise<void>;
+  resetPasswordForEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
+  updatePassword: (password: string) => Promise<{ success: boolean; error?: string }>;
 
   // Demo & Legacy Prototype Actions
   loginWithDemo: (persona: UserPersona, name?: string) => string;
@@ -115,7 +121,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         if (!isSupabaseConfigured) {
           // If Supabase is not configured, fall back to local registration
           get().registerLocalProfile(name, email);
-          return { success: true };
+          return { success: true, requiresEmailConfirmation: false };
         }
 
         const { data, error } = await supabase.auth.signUp({
@@ -123,11 +129,21 @@ export const useAuthStore = create<AuthState>((set, get) => {
           password,
           options: {
             data: { full_name: name.trim() },
+            emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/app/dashboard` : undefined,
           },
         });
 
         if (error) {
           return { success: false, error: formatAuthError(error) };
+        }
+
+        // Check if email confirmation is required by Supabase project
+        const requiresEmailConfirmation = Boolean(
+          data?.user && !data?.session && (data.user.identities?.length ?? 0) > 0
+        );
+
+        if (requiresEmailConfirmation) {
+          return { success: true, requiresEmailConfirmation: true };
         }
 
         if (data?.user) {
@@ -142,15 +158,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
           };
 
           // Reset user workspace to clean empty state (no seeded demo transactions)
-          useFinanceStore.setState({
-            user: newUser,
-            accounts: [],
-            transactions: [],
-            budgets: [],
-            goals: [],
-            holdings: [],
-            bills: [],
-          });
+          useFinanceStore.getState().clearWorkspace();
+          useFinanceStore.setState({ user: newUser });
 
           const next = {
             isAuthenticated: true,
@@ -164,10 +173,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
           set(next);
           persistAuth({ ...get(), ...next });
-          return { success: true };
+          return { success: true, requiresEmailConfirmation: false };
         }
 
-        return { success: true };
+        return { success: true, requiresEmailConfirmation: false };
       } catch (err: any) {
         return { success: false, error: formatAuthError(err) };
       }
@@ -210,10 +219,15 @@ export const useAuthStore = create<AuthState>((set, get) => {
             name: profileRow?.full_name || fullName,
             email: authUser.email || email,
             persona: (profileRow?.persona as any) || 'professional',
-            currency: 'INR',
+            currency: (profileRow?.currency as any) || 'INR',
             monthlyBudgetLimitMinor: 3000000,
             createdAt: authUser.created_at,
           };
+
+          // Clear prior workspace to prevent data leakage and sync fresh backend records
+          useFinanceStore.getState().clearWorkspace();
+          useFinanceStore.setState({ user: loadedUser });
+          await useFinanceStore.getState().syncWithBackend();
 
           const next = {
             isAuthenticated: true,
@@ -233,10 +247,48 @@ export const useAuthStore = create<AuthState>((set, get) => {
     },
 
     signOutWithSupabase: async () => {
-      if (isSupabaseConfigured) {
-        await supabase.auth.signOut();
+      try {
+        if (isSupabaseConfigured) {
+          await supabase.auth.signOut();
+        }
+      } catch (e) {
+        console.warn('[signOutWithSupabase] error:', e);
+      } finally {
+        useFinanceStore.getState().clearWorkspace();
+        get().logout();
       }
-      get().logout();
+    },
+
+    resetPasswordForEmail: async (email: string) => {
+      try {
+        if (!isSupabaseConfigured) {
+          return { success: true };
+        }
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/auth/reset-password` : undefined,
+        });
+        if (error) {
+          return { success: false, error: formatAuthError(error) };
+        }
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: formatAuthError(err) };
+      }
+    },
+
+    updatePassword: async (password: string) => {
+      try {
+        if (!isSupabaseConfigured) {
+          return { success: true };
+        }
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) {
+          return { success: false, error: formatAuthError(error) };
+        }
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: formatAuthError(err) };
+      }
     },
 
     loginWithDemo: (persona: UserPersona, customName?: string) => {

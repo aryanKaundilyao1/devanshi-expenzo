@@ -120,6 +120,7 @@ interface FinanceState {
   syncDeterministicNotifications: () => void;
   importWorkspaceData: (data: any) => { success: boolean; message: string };
   syncWithBackend: () => Promise<void>;
+  clearWorkspace: () => void;
   resetToDemo: () => void;
 
   // Banking Actions (Phase 6)
@@ -1190,25 +1191,54 @@ export const useFinanceStore = create<FinanceState>((set, get) => {
     syncWithBackend: async () => {
       if (!isSupabaseConfigured) return;
       try {
-        const [accounts, transactions, budgets, holdings] = await Promise.all([
+        const [accounts, transactions, budgets, holdings, goals, bills] = await Promise.all([
           apiFinanceService.getAccounts(),
           apiFinanceService.getTransactions(),
           apiFinanceService.getBudgets(),
           apiInvestmentService.getHoldings(),
+          apiPlannerService.fetchGoals().catch(() => []),
+          apiPlannerService.fetchBills().catch(() => []),
         ]);
 
-        if (accounts.length > 0 || transactions.length > 0) {
-          set((state) => ({
-            ...state,
-            accounts,
-            transactions,
-            budgets: budgets.length > 0 ? budgets : state.budgets,
-            holdings: holdings.length > 0 ? holdings : state.holdings,
-          }));
-        }
+        // When connected to real Supabase, user's remote accounts and transactions are authoritative
+        set((state) => ({
+          ...state,
+          accounts,
+          transactions,
+          budgets: budgets.length > 0 ? budgets : (accounts.length === 0 ? [] : state.budgets),
+          holdings,
+          goals: goals.length > 0 ? goals : (accounts.length === 0 ? [] : state.goals),
+          bills: bills.length > 0 ? bills : (accounts.length === 0 ? [] : state.bills),
+        }));
       } catch (err) {
         console.warn('[useFinanceStore] syncWithBackend error:', err);
       }
+    },
+
+    clearWorkspace: () => {
+      const emptyState = {
+        accounts: [],
+        transactions: [],
+        budgets: [],
+        goals: [],
+        recurringRules: [],
+        beneficiaries: [],
+        bills: [],
+        cards: [],
+        depositSimulations: [],
+        loanSimulations: [],
+        transferReceipts: [],
+        holdings: [],
+        watchlists: [],
+        insights: [],
+        notifications: [],
+        dismissedNotificationIds: [],
+      };
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+      set(emptyState);
+      persistState({ ...get(), ...emptyState });
     },
 
     resetToDemo: () => {

@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
+import { useAuthStore } from '@/store/useAuthStore';
 import { ArrowLeft, Mail, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 const forgotSchema = z.object({
@@ -17,6 +18,8 @@ type ForgotFormData = z.infer<typeof forgotSchema>;
 
 export function ForgotPasswordPage() {
   const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const { resetPasswordForEmail } = useAuthStore();
 
   const {
     register,
@@ -27,7 +30,12 @@ export function ForgotPasswordPage() {
   });
 
   const onSubmit = async (data: ForgotFormData) => {
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    setResetError(null);
+    const res = await resetPasswordForEmail(data.email);
+    if (!res.success && res.error) {
+      setResetError(res.error);
+      return;
+    }
     setSubmittedEmail(data.email);
   };
 
@@ -50,6 +58,11 @@ export function ForgotPasswordPage() {
       </div>
 
       <Card className="p-6 sm:p-8 border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111C30] shadow-sm space-y-4">
+        {resetError && (
+          <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900 text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
+            <span>{resetError}</span>
+          </div>
+        )}
         {submittedEmail ? (
           <div className="py-6 text-center space-y-4 animate-in fade-in-50">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600">

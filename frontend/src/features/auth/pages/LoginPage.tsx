@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { PersonaSelectorDialog } from '../components/PersonaSelectorDialog';
 import { useAuthStore } from '@/store/useAuthStore';
+import { isSupabaseConfigured } from '@/lib/supabase';
 import {
   Eye,
   EyeOff,
@@ -61,9 +62,12 @@ export function LoginPage() {
       return;
     }
 
-    loginSimulated(data.email);
+    if (!isSupabaseConfigured) {
+      loginSimulated(data.email);
+    }
 
-    if (onboardingCompleted) {
+    const { onboardingCompleted: isDone } = useAuthStore.getState();
+    if (isDone) {
       navigate(nextRoute);
     } else {
       navigate('/onboarding');

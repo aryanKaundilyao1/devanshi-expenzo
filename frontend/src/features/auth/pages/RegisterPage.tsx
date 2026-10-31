@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { useAuthStore } from '@/store/useAuthStore';
-import { Eye, EyeOff, Sparkles, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, Sparkles, ShieldCheck, CheckCircle2, Mail } from 'lucide-react';
 
 const registerSchema = z
   .object({
@@ -32,6 +32,7 @@ export function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [registerError, setRegisterError] = useState<string | null>(null);
+  const [emailConfirmationSent, setEmailConfirmationSent] = useState<string | null>(null);
   const { registerLocalProfile, signUpWithSupabase } = useAuthStore();
 
   const {
@@ -76,6 +77,10 @@ export function RegisterPage() {
       setRegisterError(res.error);
       return;
     }
+    if (res.requiresEmailConfirmation) {
+      setEmailConfirmationSent(data.email);
+      return;
+    }
     registerLocalProfile(data.name, data.email);
     navigate('/onboarding');
   };
@@ -96,127 +101,150 @@ export function RegisterPage() {
         </p>
       </div>
 
-      {/* Registration Card */}
-      <Card className="p-6 sm:p-8 border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111C30] shadow-sm space-y-4">
-        {registerError && (
-          <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900 text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
-            <span>{registerError}</span>
+      {emailConfirmationSent ? (
+        <Card className="p-6 sm:p-8 border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111C30] shadow-sm text-center space-y-4">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600">
+            <Mail className="h-7 w-7" />
           </div>
-        )}
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <Input
-            label="Full Name"
-            placeholder="e.g. Aryan Sharma"
-            error={errors.name?.message}
-            {...register('name')}
-          />
-
-          <Input
-            label="Email Address"
-            type="email"
-            placeholder="aryan.sharma@example.com"
-            error={errors.email?.message}
-            {...register('email')}
-          />
-
-          {/* Password with Strength Indicator */}
           <div className="space-y-1.5">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-              Password
-            </label>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                placeholder="At least 6 characters"
-                className={`flex h-10 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111C30] px-3.5 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 pr-10 ${
-                  errors.password ? 'border-red-500' : ''
-                }`}
-                {...register('password')}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+              Verify Your Email Address
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+              We have sent an authentication link to <strong>{emailConfirmationSent}</strong>. Please check your inbox and confirm your email to activate your EXPENZO account.
+            </p>
+          </div>
+          <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
+            <Link to="/auth/login">
+              <Button className="w-full sm:w-auto">
+                Return to Sign In
+              </Button>
+            </Link>
+          </div>
+        </Card>
+      ) : (
+        /* Registration Card */
+        <Card className="p-6 sm:p-8 border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111C30] shadow-sm space-y-4">
+          {registerError && (
+            <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900 text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
+              <span>{registerError}</span>
             </div>
-            {errors.password && <p className="text-xs text-red-500">{errors.password.message}</p>}
+          )}
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <Input
+              label="Full Name"
+              placeholder="e.g. Aryan Sharma"
+              error={errors.name?.message}
+              {...register('name')}
+            />
 
-            {passwordValue && (
-              <div className="pt-1 space-y-1">
-                <div className="flex justify-between text-[11px] text-slate-400">
-                  <span>Strength: {strength.label}</span>
-                  <span>{strength.percent}%</span>
-                </div>
-                <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div className={`h-full ${strength.color} transition-all duration-300`} style={{ width: `${strength.percent}%` }} />
-                </div>
+            <Input
+              label="Email Address"
+              type="email"
+              placeholder="aryan.sharma@example.com"
+              error={errors.email?.message}
+              {...register('email')}
+            />
+
+            {/* Password with Strength Indicator */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="At least 6 characters"
+                  className={`flex h-10 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111C30] px-3.5 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 pr-10 ${
+                    errors.password ? 'border-red-500' : ''
+                  }`}
+                  {...register('password')}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
-            )}
-          </div>
+              {errors.password && <p className="text-xs text-red-500">{errors.password.message}</p>}
 
-          {/* Confirm Password */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-              Confirm Password
-            </label>
-            <div className="relative">
-              <input
-                type={showConfirmPassword ? 'text' : 'password'}
-                placeholder="Re-enter password"
-                className={`flex h-10 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111C30] px-3.5 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 pr-10 ${
-                  errors.confirmPassword ? 'border-red-500' : ''
-                }`}
-                {...register('confirmPassword')}
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
-                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-              >
-                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
+              {passwordValue && (
+                <div className="pt-1 space-y-1">
+                  <div className="flex justify-between text-[11px] text-slate-400">
+                    <span>Strength: {strength.label}</span>
+                    <span>{strength.percent}%</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div className={`h-full ${strength.color} transition-all duration-300`} style={{ width: `${strength.percent}%` }} />
+                  </div>
+                </div>
+              )}
             </div>
-            {errors.confirmPassword && <p className="text-xs text-red-500">{errors.confirmPassword.message}</p>}
+
+            {/* Confirm Password */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Confirm Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  placeholder="Re-enter password"
+                  className={`flex h-10 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111C30] px-3.5 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 pr-10 ${
+                    errors.confirmPassword ? 'border-red-500' : ''
+                  }`}
+                  {...register('confirmPassword')}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {errors.confirmPassword && <p className="text-xs text-red-500">{errors.confirmPassword.message}</p>}
+            </div>
+
+            {/* Terms Acknowledgement */}
+            <div className="pt-1 space-y-1">
+              <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-600 dark:text-slate-400 leading-snug">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 shrink-0"
+                  {...register('acceptTerms')}
+                />
+                <span>
+                  I acknowledge this is a prototype sandbox and accept the{' '}
+                  <Link to="/terms" target="_blank" className="text-emerald-600 dark:text-emerald-400 font-semibold underline">
+                    Terms of Service
+                  </Link>{' '}
+                  and{' '}
+                  <Link to="/privacy" target="_blank" className="text-emerald-600 dark:text-emerald-400 font-semibold underline">
+                    Privacy Policy
+                  </Link>.
+                </span>
+              </label>
+              {errors.acceptTerms && <p className="text-xs text-red-500">{errors.acceptTerms.message}</p>}
+            </div>
+
+            <Button type="submit" className="w-full" isLoading={isSubmitting}>
+              Create Profile & Start Onboarding
+            </Button>
+          </form>
+
+          <div className="pt-3 text-center text-xs text-slate-500 border-t border-slate-100 dark:border-slate-800">
+            <span>Already have a demo session? </span>
+            <Link to="/auth/login" className="font-semibold text-emerald-600 dark:text-emerald-400 hover:underline">
+              Sign In Here
+            </Link>
           </div>
-
-          {/* Terms Acknowledgement */}
-          <div className="pt-1 space-y-1">
-            <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-600 dark:text-slate-400 leading-snug">
-              <input
-                type="checkbox"
-                className="mt-0.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 shrink-0"
-                {...register('acceptTerms')}
-              />
-              <span>
-                I acknowledge this is a prototype sandbox and accept the{' '}
-                <Link to="/terms" target="_blank" className="text-emerald-600 dark:text-emerald-400 font-semibold underline">
-                  Terms of Service
-                </Link>{' '}
-                and{' '}
-                <Link to="/privacy" target="_blank" className="text-emerald-600 dark:text-emerald-400 font-semibold underline">
-                  Privacy Policy
-                </Link>.
-              </span>
-            </label>
-            {errors.acceptTerms && <p className="text-xs text-red-500">{errors.acceptTerms.message}</p>}
-          </div>
-
-          <Button type="submit" className="w-full" isLoading={isSubmitting}>
-            Create Profile & Start Onboarding
-          </Button>
-        </form>
-
-        <div className="pt-3 text-center text-xs text-slate-500 border-t border-slate-100 dark:border-slate-800">
-          <span>Already have a demo session? </span>
-          <Link to="/auth/login" className="font-semibold text-emerald-600 dark:text-emerald-400 hover:underline">
-            Sign In Here
-          </Link>
-        </div>
-      </Card>
+        </Card>
+      )}
 
       <div className="flex items-center justify-center gap-2 text-xs text-slate-400 text-center">
         <ShieldCheck className="h-4 w-4 text-emerald-500" />
