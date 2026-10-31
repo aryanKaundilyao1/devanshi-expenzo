@@ -187,3 +187,4 @@ describe('Phase 3: Production Authentication & User Isolation Tests', () => {
     expect(userBNetWorth).toBe(200000);
   });
 });
+
