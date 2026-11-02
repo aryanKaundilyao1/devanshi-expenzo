@@ -4,7 +4,9 @@ import { formatINR } from '@/domain/money/formatters';
 const STORAGE_KEY = 'expenzo_gemini_api_key';
 
 /**
- * Retrieve the active Google Gemini API key from localStorage or Vite environment variables
+ * Retrieve the active Google Gemini API key from user-controlled browser storage.
+ * Shared provider credentials are kept strictly server-side on Supabase Edge Functions
+ * to eliminate any client bundle key exposure.
  */
 export function getGeminiApiKey(): string {
   if (typeof window !== 'undefined') {
@@ -12,12 +14,7 @@ export function getGeminiApiKey(): string {
     if (local && local.trim().length > 0) return local.trim();
   }
 
-  const envKey =
-    (import.meta.env.VITE_GEMINI_API_KEY as string | undefined) ||
-    (import.meta.env.GEMINI_API_KEY as string | undefined) ||
-    '';
-
-  return envKey.trim();
+  return '';
 }
 
 /**
@@ -280,3 +277,4 @@ ${holdingSummaries.length > 0 ? holdingSummaries.join('\n') : 'No active stock h
 
   throw lastError || new Error('Failed to reach Gemini API.');
 }
+

@@ -28,22 +28,13 @@ export default defineConfig(({ mode }) => {
     process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
     '';
 
-  const geminiApiKey =
-    env.VITE_GEMINI_API_KEY ||
-    env.GEMINI_API_KEY ||
-    process.env.VITE_GEMINI_API_KEY ||
-    process.env.GEMINI_API_KEY ||
-    '';
-
   return {
-    envPrefix: ['VITE_', 'Supabse_', 'supabase_', 'SUPABASE_', 'GEMINI_'],
+    envPrefix: ['VITE_', 'Supabse_', 'supabase_', 'SUPABASE_'],
     define: {
       'import.meta.env.Supabse_url': JSON.stringify(supabaseUrl),
       'import.meta.env.supabase_anon_key': JSON.stringify(supabaseAnonKey),
       ...(supabaseUrl ? { 'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(supabaseUrl) } : {}),
       ...(supabaseAnonKey ? { 'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(supabaseAnonKey) } : {}),
-      ...(geminiApiKey ? { 'import.meta.env.VITE_GEMINI_API_KEY': JSON.stringify(geminiApiKey) } : {}),
-      ...(geminiApiKey ? { 'import.meta.env.GEMINI_API_KEY': JSON.stringify(geminiApiKey) } : {}),
     },
     plugins: [
       react(),
