@@ -4,6 +4,21 @@ import { useAIChatStore } from '@/features/ai/store/useAIChatStore';
 import { useFinanceStore } from '@/store/useFinanceStore';
 import { ChatMessageBubble } from '@/features/ai/components/ChatMessageBubble';
 import {
+  getGeminiApiKey,
+  setGeminiApiKey,
+  clearGeminiApiKey,
+  isGeminiConfigured,
+} from '@/features/ai/services/geminiService';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/Dialog';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import {
   Send,
   Plus,
   Trash2,
@@ -14,6 +29,10 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Info,
+  Settings,
+  Key,
+  ExternalLink,
+  CheckCircle2,
 } from 'lucide-react';
 
 const SUGGESTED_PROMPTS = [
@@ -49,6 +68,10 @@ export const AIAssistantPage: React.FC = () => {
   const [input, setInput] = useState('');
   const [search, setSearch] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [geminiKeyInput, setGeminiKeyInput] = useState(getGeminiApiKey());
+  const [geminiConnected, setGeminiConnected] = useState(isGeminiConfigured());
+  const [keyToast, setKeyToast] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Sync active persona with user profile from finance store
@@ -57,6 +80,11 @@ export const AIAssistantPage: React.FC = () => {
       setPersona(user.persona);
     }
   }, [user?.persona, activePersona, setPersona]);
+
+  // Keep Gemini connected status in sync
+  useEffect(() => {
+    setGeminiConnected(isGeminiConfigured());
+  }, [isSettingsOpen]);
 
   // Sync URL chatId param with activeChatId
   useEffect(() => {
@@ -207,14 +235,36 @@ export const AIAssistantPage: React.FC = () => {
               </h2>
               <div className="flex items-center gap-2 text-[10px] text-slate-400">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Deterministic Client-Side Intelligence • Zero External AI APIs</span>
+                <span>
+                  {geminiConnected
+                    ? 'Google Gemini 1.5 Flash Active • Real-Time Financial Intelligence'
+                    : 'Smart Financial Co-Pilot • Real-Time Context Engine'}
+                </span>
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-[10px] px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium">
-              Profile: {user?.name || 'Demo User'}
+            <button
+              type="button"
+              onClick={() => {
+                setGeminiKeyInput(getGeminiApiKey());
+                setIsSettingsOpen(true);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold border transition-all cursor-pointer ${
+                geminiConnected
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 shadow-xs'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-500'
+              }`}
+              title="Configure Free Google Gemini AI"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+              <span>{geminiConnected ? 'Gemini Flash (Free AI Active)' : 'Connect Free Gemini AI'}</span>
+              <Settings className="w-3 h-3 ml-0.5 opacity-60" />
+            </button>
+
+            <span className="text-[10px] px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium hidden sm:inline-block">
+              Profile: {user?.name || 'Authorized User'}
             </span>
           </div>
         </div>
@@ -278,10 +328,123 @@ export const AIAssistantPage: React.FC = () => {
           </form>
           <div className="flex items-center justify-between text-[10px] text-slate-400 mt-2 px-1">
             <span>Press Enter to send</span>
-            <span>Responses computed purely client-side from local demo store</span>
+            <span>
+              {geminiConnected
+                ? '⚡ Powered by Google Gemini 1.5 Flash (Free AI) with verified ledger grounding'
+                : '⚡ Powered by EXPENZO Smart Financial Engine • Real-time database context'}
+            </span>
           </div>
         </div>
       </div>
+
+      {/* Gemini AI Settings Dialog */}
+      <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+        <DialogContent className="max-w-md p-6 border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111C30]">
+          <DialogHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-xl bg-emerald-600/10 text-emerald-600 flex items-center justify-center">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <DialogTitle className="text-base font-bold text-slate-900 dark:text-white">
+                Google Gemini Free AI Model
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-xs pt-1">
+              Connect Google Gemini 1.5 Flash for natural language financial analysis, budgeting advice, and insights.
+            </DialogDescription>
+          </DialogHeader>
+
+          {keyToast && (
+            <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+              <span>Gemini API Key saved successfully! Live AI assistant active.</span>
+            </div>
+          )}
+
+          <div className="space-y-4 pt-2">
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs space-y-2">
+              <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white">
+                <Key className="w-4 h-4 text-emerald-600" />
+                <span>100% Free Forever Tier</span>
+              </div>
+              <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">
+                Google Gemini 1.5 Flash provides 15 requests per minute and 1,500 requests per day for <strong>FREE</strong> without needing a credit card.
+              </p>
+              <a
+                href="https://aistudio.google.com/app/apikey"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline pt-1"
+              >
+                <span>Get Free Gemini Key in Google AI Studio</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Gemini API Key
+              </label>
+              <Input
+                type="password"
+                placeholder="AIzaSy..."
+                value={geminiKeyInput}
+                onChange={(e) => setGeminiKeyInput(e.target.value)}
+                className="font-mono text-xs"
+              />
+              <p className="text-[10px] text-slate-400">
+                Key is stored securely in your browser's local storage and used directly for encrypted calls to Google Gemini.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+              {geminiConnected ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearGeminiApiKey();
+                    setGeminiKeyInput('');
+                    setGeminiConnected(false);
+                    setIsSettingsOpen(false);
+                  }}
+                  className="text-xs text-rose-600 hover:underline font-semibold"
+                >
+                  Disconnect Key
+                </button>
+              ) : (
+                <div />
+              )}
+
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsSettingsOpen(false)}
+                >
+                  Close
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    setGeminiApiKey(geminiKeyInput);
+                    setGeminiConnected(isGeminiConfigured());
+                    setKeyToast(true);
+                    setTimeout(() => {
+                      setKeyToast(false);
+                      setIsSettingsOpen(false);
+                    }, 800);
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  Save & Connect
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

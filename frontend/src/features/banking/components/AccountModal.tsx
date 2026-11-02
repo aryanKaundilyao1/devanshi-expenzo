@@ -10,7 +10,7 @@ interface AccountModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   accountToEdit?: FinancialAccount | null;
-  onSuccess?: () => void;
+  onSuccess?: (account?: FinancialAccount) => void;
 }
 
 const INSTITUTION_OPTIONS = [
@@ -20,6 +20,8 @@ const INSTITUTION_OPTIONS = [
   'Axis Bank',
   'Kotak Mahindra Bank',
   'Punjab National Bank',
+  'Bank of Baroda',
+  'Canara Bank',
   'Physical Cash Wallet',
   'Other Bank',
 ];
@@ -34,6 +36,7 @@ export function AccountModal({
 
   const [name, setName] = useState('');
   const [institution, setInstitution] = useState('HDFC Bank');
+  const [customInstitution, setCustomInstitution] = useState('');
   const [accountType, setAccountType] = useState<AccountType>('savings');
   const [openingBalance, setOpeningBalance] = useState('');
   const [accountNumberMasked, setAccountNumberMasked] = useState('');
@@ -42,13 +45,20 @@ export function AccountModal({
   useEffect(() => {
     if (accountToEdit) {
       setName(accountToEdit.name);
-      setInstitution(accountToEdit.institution);
+      if (INSTITUTION_OPTIONS.includes(accountToEdit.institution)) {
+        setInstitution(accountToEdit.institution);
+        setCustomInstitution('');
+      } else {
+        setInstitution('Other Bank');
+        setCustomInstitution(accountToEdit.institution);
+      }
       setAccountType(accountToEdit.accountType);
       setOpeningBalance((accountToEdit.openingBalanceMinor / 100).toString());
       setAccountNumberMasked(accountToEdit.accountNumberMasked);
     } else {
       setName('');
       setInstitution('HDFC Bank');
+      setCustomInstitution('');
       setAccountType('savings');
       setOpeningBalance('');
       setAccountNumberMasked('•••• ' + Math.floor(1000 + Math.random() * 9000));
@@ -61,9 +71,14 @@ export function AccountModal({
     setError(null);
 
     if (!name.trim()) {
-      setError('Please provide an account nickname.');
+      setError('Please provide an account nickname (e.g. Salary Account, Everyday Savings).');
       return;
     }
+
+    const resolvedInstitution =
+      institution === 'Other Bank' && customInstitution.trim()
+        ? customInstitution.trim()
+        : institution;
 
     const balanceNum = parseFloat(openingBalance);
     if (!accountToEdit && (isNaN(balanceNum) || balanceNum < 0)) {
@@ -71,29 +86,38 @@ export function AccountModal({
       return;
     }
 
+    let resultingAccount: FinancialAccount | undefined;
+
     if (accountToEdit) {
       updateAccount({
         id: accountToEdit.id,
         name: name.trim(),
-        institution,
+        institution: resolvedInstitution,
         accountType,
         accountNumberMasked: accountNumberMasked.trim() || '•••• 0000',
       });
+      resultingAccount = {
+        ...accountToEdit,
+        name: name.trim(),
+        institution: resolvedInstitution,
+        accountType,
+        accountNumberMasked: accountNumberMasked.trim() || '•••• 0000',
+      };
     } else {
       const openingBalanceMinor = Math.round(balanceNum * 100);
-      addAccount({
+      resultingAccount = addAccount({
         name: name.trim(),
-        institution,
+        institution: resolvedInstitution,
         accountType,
         accountNumberMasked: accountNumberMasked.trim() || '•••• 0000',
         openingBalanceMinor,
         currency: 'INR',
-        isDemo: true,
+        isDemo: false,
       });
     }
 
     onOpenChange(false);
-    onSuccess?.();
+    onSuccess?.(resultingAccount);
   };
 
   return (
@@ -104,7 +128,7 @@ export function AccountModal({
           <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <Building2 className="h-5 w-5 text-emerald-600" />
-              {accountToEdit ? 'Edit Demo Account' : 'Add New Demo Account'}
+              {accountToEdit ? 'Edit Bank Account' : 'Add Bank or Cash Account'}
             </Dialog.Title>
             <Dialog.Close asChild>
               <button
@@ -119,7 +143,7 @@ export function AccountModal({
           <div className="mt-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 flex items-start gap-2.5 text-xs text-emerald-900 dark:text-emerald-200">
             <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
             <span>
-              <strong>Simulated Demo Account:</strong> Operates strictly inside browser-local storage. No real banking credentials or external APIs are connected.
+              <strong>Financial Account:</strong> Synced securely to your personal Supabase cloud ledger. Balances and transaction history are isolated to your profile.
             </span>
           </div>
 
@@ -137,7 +161,7 @@ export function AccountModal({
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Everyday Savings, Salary Account"
+                placeholder="e.g. Salary Account, Everyday Savings, Cash Wallet"
                 required
               />
             </div>
@@ -145,7 +169,7 @@ export function AccountModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Institution
+                  Bank / Institution
                 </label>
                 <select
                   value={institution}
@@ -177,11 +201,25 @@ export function AccountModal({
               </div>
             </div>
 
+            {institution === 'Other Bank' && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Custom Bank Name *
+                </label>
+                <Input
+                  value={customInstitution}
+                  onChange={(e) => setCustomInstitution(e.target.value)}
+                  placeholder="e.g. Canara Bank, IndusInd Bank, Federal Bank"
+                  required
+                />
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {!accountToEdit && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Opening Balance (₹) *
+                    Opening Balance (₹ INR) *
                   </label>
                   <Input
                     type="number"
@@ -197,7 +235,7 @@ export function AccountModal({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Masked Identifier
+                  Account Identifier / Last 4 Digits
                 </label>
                 <Input
                   value={accountNumberMasked}
@@ -212,7 +250,7 @@ export function AccountModal({
                 Cancel
               </Button>
               <Button type="submit">
-                {accountToEdit ? 'Save Changes' : 'Create Demo Account'}
+                {accountToEdit ? 'Save Changes' : 'Create Bank Account'}
               </Button>
             </div>
           </form>

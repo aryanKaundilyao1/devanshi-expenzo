@@ -8,6 +8,7 @@ import {
 import { useFinanceStore } from '@/store/useFinanceStore';
 import { Transaction } from '@/types/finance';
 import { formatINR } from '@/domain/calculations/money';
+import { isGeminiConfigured, callGeminiFlash } from '@/features/ai/services/geminiService';
 
 export const mockFinanceService: FinanceServiceContract = {
   async getAccounts() {
@@ -103,8 +104,23 @@ export const mockAIService: AIServiceContract = {
   },
 
   async processPrompt(prompt: string) {
-    const lower = prompt.toLowerCase();
     const store = useFinanceStore.getState();
+
+    // 1. If Gemini Free AI is configured, query Gemini Flash
+    if (isGeminiConfigured()) {
+      try {
+        const geminiRes = await callGeminiFlash(prompt, store);
+        return {
+          intent: geminiRes.intent || 'gemini_flash',
+          text: geminiRes.text,
+          structuredCard: geminiRes.card,
+        };
+      } catch (err) {
+        console.warn('[mockAIService] Gemini Flash call failed, falling back:', err);
+      }
+    }
+
+    const lower = prompt.toLowerCase();
 
     if (lower.includes('spend') || lower.includes('spent') || lower.includes('expense')) {
       const spent = store.getPeriodExpenses();

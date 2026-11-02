@@ -2,6 +2,27 @@ import { IntentContext, IntentHandler, IntentResult } from './types';
 import { formatINR } from '@/domain/money/formatters';
 import { calculatePortfolioMetrics, calculateHoldingsDetailed, calculateSectorAllocation } from '@/features/investments/utils/investmentCalculations';
 
+/**
+ * Determine active target period from transactions or current date
+ */
+export function getTargetPeriod(transactions: any[]): { prefix: string; label: string } {
+  if (!transactions || transactions.length === 0) {
+    const d = new Date();
+    const prefix = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const label = d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    return { prefix, label };
+  }
+  const sorted = [...transactions].sort((a: any, b: any) => b.date.localeCompare(a.date));
+  const latestDate = sorted[0]?.date || '2026-10-15';
+  const prefix = latestDate.slice(0, 7);
+  const [year, month] = prefix.split('-');
+  const dateObj = new Date(Number(year), Number(month) - 1, 1);
+  const label = isNaN(dateObj.getTime())
+    ? prefix
+    : dateObj.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+  return { prefix, label };
+}
+
 export const INTENT_REGISTRY: IntentHandler[] = [
   // -------------------------------------------------------------
   // 1. EXPENSES INTENTS
@@ -28,21 +49,22 @@ export const INTENT_REGISTRY: IntentHandler[] = [
     },
     execute: (ctx) => {
       const { transactions } = ctx.storeState;
+      const { prefix, label } = getTargetPeriod(transactions);
       const monthExpenses = transactions
-        .filter((t: any) => t.type === 'expense' && t.status === 'completed' && t.date.startsWith('2026-10'))
+        .filter((t: any) => t.type === 'expense' && t.status === 'completed' && t.date.startsWith(prefix))
         .reduce((sum: number, t: any) => sum + t.amountMinor, 0);
 
       const count = transactions.filter(
-        (t: any) => t.type === 'expense' && t.status === 'completed' && t.date.startsWith('2026-10')
+        (t: any) => t.type === 'expense' && t.status === 'completed' && t.date.startsWith(prefix)
       ).length;
 
       return {
         intentId: 'expense_month_total',
         intentCategory: 'expenses',
-        textResponse: `In October 2026, you have recorded ${count} expense transactions totaling ${formatINR(monthExpenses)}.`,
+        textResponse: `In ${label}, you have recorded ${count} expense transactions totaling ${formatINR(monthExpenses)}.`,
         card: {
           type: 'financial_summary',
-          title: 'October 2026 Outflow Summary',
+          title: `${label} Outflow Summary`,
           subtitle: `${count} debit ledger transactions`,
           metrics: [
             { label: 'Total Spent', value: formatINR(monthExpenses) },
@@ -236,12 +258,13 @@ export const INTENT_REGISTRY: IntentHandler[] = [
     },
     execute: (ctx) => {
       const { transactions } = ctx.storeState;
+      const { prefix, label } = getTargetPeriod(transactions);
       const monthIncome = transactions
-        .filter((t: any) => t.type === 'income' && t.status === 'completed' && t.date.startsWith('2026-10'))
+        .filter((t: any) => t.type === 'income' && t.status === 'completed' && t.date.startsWith(prefix))
         .reduce((sum: number, t: any) => sum + t.amountMinor, 0);
 
       const monthExpenses = transactions
-        .filter((t: any) => t.type === 'expense' && t.status === 'completed' && t.date.startsWith('2026-10'))
+        .filter((t: any) => t.type === 'expense' && t.status === 'completed' && t.date.startsWith(prefix))
         .reduce((sum: number, t: any) => sum + t.amountMinor, 0);
 
       const netCashFlow = monthIncome - monthExpenses;
@@ -250,10 +273,10 @@ export const INTENT_REGISTRY: IntentHandler[] = [
       return {
         intentId: 'income_total',
         intentCategory: 'income',
-        textResponse: `In October 2026, your total credited income is ${formatINR(monthIncome)}. Total debits are ${formatINR(monthExpenses)}, resulting in a positive net cash flow of ${formatINR(netCashFlow)} (savings rate: ${savingsRate.toFixed(1)}%).`,
+        textResponse: `In ${label}, your total credited income is ${formatINR(monthIncome)}. Total debits are ${formatINR(monthExpenses)}, resulting in a positive net cash flow of ${formatINR(netCashFlow)} (savings rate: ${savingsRate.toFixed(1)}%).`,
         card: {
           type: 'financial_summary',
-          title: 'Cash Flow Reconciliation',
+          title: `${label} Cash Flow Reconciliation`,
           metrics: [
             { label: 'Credits (Income)', value: formatINR(monthIncome) },
             { label: 'Debits (Expenses)', value: formatINR(monthExpenses) },
@@ -716,6 +739,428 @@ export const INTENT_REGISTRY: IntentHandler[] = [
       };
     },
   },
+
+  // -------------------------------------------------------------
+  // 6. GREETINGS & CO-PILOT ASSISTANT
+  // -------------------------------------------------------------
+  {
+    id: 'greeting_intro',
+    name: 'Assistant Introduction & Capabilities',
+    category: 'education',
+    keywords: ['hi', 'hello', 'hey', 'help', 'who are you', 'capabilities'],
+    patterns: [/^(hi|hello|hey)\b/i, /who are you/i, /what can you do/i, /help/i],
+    match: (ctx) => {
+      const q = ctx.normalizedQuestion;
+      return (
+        q === 'hi' ||
+        q === 'hello' ||
+        q === 'hey' ||
+        q.startsWith('hi ') ||
+        q.startsWith('hello ') ||
+        q.includes('who are you') ||
+        q.includes('what can you do') ||
+        q.includes('help me') ||
+        q === 'help'
+      );
+    },
+    execute: (ctx) => {
+      const { accounts = [], transactions = [] } = ctx.storeState;
+      const totalCash = accounts
+        .filter((a: any) => !a.isArchived)
+        .reduce((sum: number, a: any) => {
+          let b = a.openingBalanceMinor;
+          for (const tx of transactions) {
+            if (tx.status === 'flagged') continue;
+            if (tx.accountId === a.id) {
+              if (tx.type === 'expense' || tx.type === 'transfer') b -= tx.amountMinor;
+              if (tx.type === 'income') b += tx.amountMinor;
+            }
+            if (tx.type === 'transfer' && tx.targetAccountId === a.id) b += tx.amountMinor;
+          }
+          return sum + b;
+        }, 0);
+
+      return {
+        intentId: 'greeting_intro',
+        intentCategory: 'education',
+        textResponse: `Hello! I am your EXPENZO Financial Intelligence Co-pilot. You currently have ${accounts.length} linked account(s) with ${formatINR(totalCash)} in total liquid balance.
+
+I can assist you with:
+• **Spending Analysis**: "How much did I spend this month?", "What was my biggest expense?"
+• **Bank Balances**: "What is my bank balance?", "Show all my accounts"
+• **Budget Tracking**: "How much budget is left?", "Am I within budget?"
+• **Savings & Goals**: "How are my savings goals?", "Explain the 50/30/20 rule"
+• **Investments**: "What is my portfolio worth?", "What is a SIP?"
+• **Tax Planning**: "How can I save tax under Section 80C?"
+
+What would you like to explore?`,
+        card: {
+          type: 'financial_summary',
+          title: 'EXPENZO Financial Co-Pilot',
+          subtitle: 'Active Portfolio & Financial Assistant',
+          metrics: [
+            { label: 'Linked Accounts', value: accounts.length.toString() },
+            { label: 'Available Balance', value: formatINR(totalCash) },
+          ],
+          actionLink: { label: 'Go to Financial Dashboard', href: '/app/dashboard' },
+        },
+        suggestedFollowUps: [
+          'How much did I spend this month?',
+          'What is my available cash balance?',
+          'How much budget is left?',
+          'Explain the 50/30/20 rule',
+        ],
+      };
+    },
+  },
+
+  // -------------------------------------------------------------
+  // 7. BANK ACCOUNTS BREAKDOWN
+  // -------------------------------------------------------------
+  {
+    id: 'bank_accounts_breakdown',
+    name: 'Bank Accounts Breakdown',
+    category: 'banking',
+    keywords: ['accounts', 'bank', 'banks', 'balance', 'balances', 'hdfc', 'sbi', 'icici', 'axis', 'kotak'],
+    patterns: [/account(s)?/i, /bank(s)?/i, /balance(s)?/i],
+    match: (ctx) => {
+      const q = ctx.normalizedQuestion;
+      return (
+        (q.includes('account') || q.includes('accounts') || q.includes('bank') || q.includes('banks')) &&
+        (q.includes('show') || q.includes('list') || q.includes('my') || q.includes('balance') || q.includes('what') || q.includes('where'))
+      );
+    },
+    execute: (ctx) => {
+      const { accounts = [], transactions = [] } = ctx.storeState;
+      const active = accounts.filter((a: any) => !a.isArchived);
+
+      const items = active.map((a: any) => {
+        let b = a.openingBalanceMinor;
+        for (const tx of transactions) {
+          if (tx.status === 'flagged') continue;
+          if (tx.accountId === a.id) {
+            if (tx.type === 'expense' || tx.type === 'transfer') b -= tx.amountMinor;
+            if (tx.type === 'income') b += tx.amountMinor;
+          }
+          if (tx.type === 'transfer' && tx.targetAccountId === a.id) b += tx.amountMinor;
+        }
+        return {
+          id: a.id,
+          name: `${a.name} (${a.institution})`,
+          balance: b,
+          type: a.accountType,
+        };
+      });
+
+      const totalBalance = items.reduce((sum: number, it: any) => sum + it.balance, 0);
+
+      const breakdownText = items
+        .map((it: any) => `• **${it.name}**: ${formatINR(it.balance)}`)
+        .join('\n');
+
+      return {
+        intentId: 'bank_accounts_breakdown',
+        intentCategory: 'banking',
+        textResponse: `You have ${active.length} active bank and cash account(s) totaling ${formatINR(totalBalance)} in liquid balance:
+
+${breakdownText}`,
+        card: {
+          type: 'financial_summary',
+          title: 'Connected Accounts Ledger',
+          subtitle: `${active.length} Verified Bank Accounts`,
+          breakdown: items.map((it: any) => ({
+            name: it.name,
+            amountMinor: it.balance,
+            percent: totalBalance > 0 ? Math.max(0, (it.balance / totalBalance) * 100) : 0,
+          })),
+          metrics: [
+            { label: 'Total Liquid Cash', value: formatINR(totalBalance) },
+            { label: 'Active Accounts', value: active.length.toString() },
+          ],
+          actionLink: { label: 'Manage Accounts & Transfer', href: '/app/banking' },
+        },
+        suggestedFollowUps: [
+          'What is my available cash balance?',
+          'How much did I spend this month?',
+          'Record a transfer',
+        ],
+      };
+    },
+  },
+
+  // -------------------------------------------------------------
+  // 8. BUDGET STATUS OVERVIEW
+  // -------------------------------------------------------------
+  {
+    id: 'budget_status_overview',
+    name: 'Budget Status Overview',
+    category: 'budgets',
+    keywords: ['budget', 'budgets', 'limit', 'allocated'],
+    patterns: [/budget(s)?/i, /spending limit/i],
+    match: (ctx) => {
+      const q = ctx.normalizedQuestion;
+      return (
+        q.includes('budget') ||
+        q.includes('budgets') ||
+        (q.includes('within') && q.includes('limit'))
+      );
+    },
+    execute: (ctx) => {
+      const { budgets = [], transactions = [] } = ctx.storeState;
+      const { prefix, label } = getTargetPeriod(transactions);
+
+      if (budgets.length === 0) {
+        return {
+          intentId: 'budget_status_overview',
+          intentCategory: 'budgets',
+          textResponse: `You do not have any active monthly budgets configured yet. Setting category budgets helps avoid overspending.`,
+          card: {
+            type: 'financial_summary',
+            title: 'No Budgets Configured',
+            subtitle: 'Establish spending limits for Food, Shopping, and Housing',
+            actionLink: { label: 'Create a Budget', href: '/app/budgets' },
+          },
+        };
+      }
+
+      const totalAllocated = budgets.reduce((sum: number, b: any) => sum + b.allocatedMinor, 0);
+      let totalSpent = 0;
+
+      const items = budgets.map((b: any) => {
+        const spent = transactions
+          .filter((t: any) => t.type === 'expense' && t.category === b.category && t.date.startsWith(prefix))
+          .reduce((sum: number, t: any) => sum + t.amountMinor, 0);
+        totalSpent += spent;
+        const remaining = Math.max(0, b.allocatedMinor - spent);
+        const percent = b.allocatedMinor > 0 ? (spent / b.allocatedMinor) * 100 : 0;
+        return {
+          category: b.category,
+          allocated: b.allocatedMinor,
+          spent,
+          remaining,
+          percent,
+        };
+      });
+
+      const overBudgetItems = items.filter((it: any) => it.spent > it.allocated);
+      const remainingTotal = Math.max(0, totalAllocated - totalSpent);
+
+      const budgetList = items
+        .map(
+          (it: any) =>
+            `• **${it.category}**: ${formatINR(it.spent)} / ${formatINR(it.allocated)} (${it.percent.toFixed(0)}%) ${
+              it.spent > it.allocated ? '⚠️ OVER BUDGET' : `(₹${(it.remaining / 100).toLocaleString('en-IN')} left)`
+            }`
+        )
+        .join('\n');
+
+      return {
+        intentId: 'budget_status_overview',
+        intentCategory: 'budgets',
+        textResponse: `In ${label}, your overall budget utilization is ${(totalAllocated > 0 ? (totalSpent / totalAllocated) * 100 : 0).toFixed(0)}% (${formatINR(totalSpent)} spent out of ${formatINR(totalAllocated)} allocated, with ${formatINR(remainingTotal)} remaining):
+
+${budgetList}
+${overBudgetItems.length > 0 ? `\n⚠️ You have exceeded budget in: ${overBudgetItems.map((o: any) => o.category).join(', ')}.` : '\n✅ All tracked categories are within budget limits.'}`,
+        card: {
+          type: 'financial_summary',
+          title: `${label} Budget Status`,
+          subtitle: `${budgets.length} Categories Monitored`,
+          metrics: [
+            { label: 'Total Allocated', value: formatINR(totalAllocated) },
+            { label: 'Total Spent', value: formatINR(totalSpent) },
+            { label: 'Remaining', value: formatINR(remainingTotal) },
+            { label: 'Utilization', value: `${(totalAllocated > 0 ? (totalSpent / totalAllocated) * 100 : 0).toFixed(0)}%` },
+          ],
+          breakdown: items.map((it: any) => ({
+            name: it.category,
+            amountMinor: it.spent,
+            percent: Math.min(100, it.percent),
+          })),
+          actionLink: { label: 'Manage Budgets', href: '/app/budgets' },
+        },
+        suggestedFollowUps: [
+          'How much did I spend this month?',
+          'What was my biggest expense?',
+          'Explain the 50/30/20 rule',
+        ],
+      };
+    },
+  },
+
+  // -------------------------------------------------------------
+  // 9. 50/30/20 BUDGETING RULE
+  // -------------------------------------------------------------
+  {
+    id: 'planning_50_30_20',
+    name: '50-30-20 Budgeting Rule',
+    category: 'education',
+    keywords: ['50 30 20', '50/30/20', 'rule', 'split', 'allocation'],
+    patterns: [/50[ /]30[ /]20/i, /budget rule/i, /salary allocation/i],
+    match: (ctx) => {
+      const q = ctx.normalizedQuestion;
+      return (
+        q.includes('50 30 20') ||
+        q.includes('50/30/20') ||
+        (q.includes('rule') && (q.includes('budget') || q.includes('save') || q.includes('salary')))
+      );
+    },
+    execute: (ctx) => {
+      const { transactions = [] } = ctx.storeState;
+      const { prefix } = getTargetPeriod(transactions);
+      const income = transactions
+        .filter((t: any) => t.type === 'income' && t.status === 'completed' && t.date.startsWith(prefix))
+        .reduce((sum: number, t: any) => sum + t.amountMinor, 0) || 5000000;
+
+      const needs = Math.round(income * 0.5);
+      const wants = Math.round(income * 0.3);
+      const savings = Math.round(income * 0.2);
+
+      return {
+        intentId: 'planning_50_30_20',
+        intentCategory: 'education',
+        textResponse: `The **50/30/20 Rule** is a gold-standard personal finance framework:
+
+• **50% Needs (${formatINR(needs)})**: Essential living expenses (Rent, groceries, utilities, EMIs, healthcare).
+• **30% Wants (${formatINR(wants)})**: Discretionary lifestyle spending (Dining out, entertainment, shopping, vacations).
+• **20% Savings & Debt (${formatINR(savings)})**: Wealth building and security (SIP mutual funds, emergency fund, PPF, principal prepayments).
+
+Applied to your monthly income of ${formatINR(income)}, you should aim to allocate ${formatINR(needs)} for essentials and build at least ${formatINR(savings)} in long-term savings every month.`,
+        card: {
+          type: 'financial_summary',
+          title: '50/30/20 Allocation Plan',
+          subtitle: `Targeted on ${formatINR(income)} Monthly Inflow`,
+          breakdown: [
+            { name: '50% Needs (Essentials & Fixed Costs)', amountMinor: needs, percent: 50 },
+            { name: '30% Wants (Lifestyle & Discretionary)', amountMinor: wants, percent: 30 },
+            { name: '20% Savings (SIP, PPF, Emergency Fund)', amountMinor: savings, percent: 20 },
+          ],
+          actionLink: { label: 'Review Current Spending', href: '/app/expenses' },
+        },
+        suggestedFollowUps: [
+          'How much did I spend this month?',
+          'What is a SIP?',
+          'How to build an emergency fund?',
+        ],
+      };
+    },
+  },
+
+  // -------------------------------------------------------------
+  // 10. TAX SAVING UNDER SECTION 80C
+  // -------------------------------------------------------------
+  {
+    id: 'tax_savings_80c',
+    name: 'Tax Saving & Section 80C',
+    category: 'education',
+    keywords: ['tax', '80c', 'income tax', 'regime', 'save tax'],
+    patterns: [/tax/i, /80c/i, /regime/i],
+    match: (ctx) => {
+      const q = ctx.normalizedQuestion;
+      return (
+        q.includes('tax') ||
+        q.includes('80c') ||
+        q.includes('regime')
+      );
+    },
+    execute: () => {
+      return {
+        intentId: 'tax_savings_80c',
+        intentCategory: 'education',
+        textResponse: `Under Indian Income Tax laws, you have two primary regimes:
+
+• **New Tax Regime (Default)**: Offers lower tax slab rates (no tax up to ₹7 Lakhs taxable income with rebate under Sec 87A), but disallows most Chapter VI-A deductions.
+• **Old Tax Regime**: Beneficial if you utilize major deductions:
+  1. **Section 80C (Up to ₹1.5 Lakhs)**: ELSS mutual funds (3-year lock-in), EPF, PPF, National Savings Certificate (NSC), Life Insurance Premiums, Home Loan Principal repayment.
+  2. **Section 80CCD(1B) (Additional ₹50,000)**: National Pension System (NPS).
+  3. **Section 80D (Up to ₹25,000 to ₹50,000)**: Health insurance premiums for self and senior citizen parents.
+  4. **Section 24(b) (Up to ₹2 Lakhs)**: Home loan interest payment.
+
+**Action Tip**: Calculate your total deductions. If deductions exceed ~₹3.75 Lakhs, the Old Regime usually saves more tax; otherwise, the New Regime is typically more tax-efficient.`,
+        card: {
+          type: 'concept_explanation',
+          title: 'Section 80C & Tax Deductions Summary',
+          educationalNote: 'ELSS mutual funds offer the shortest lock-in period (3 years) under Section 80C while providing equity market compounding returns.',
+          actionLink: { label: 'Learn More in Financial Literacy', href: '/app/learning' },
+        },
+        suggestedFollowUps: [
+          'What is a SIP?',
+          'Explain the 50/30/20 rule',
+          'What is an ETF?',
+        ],
+      };
+    },
+  },
+
+  // -------------------------------------------------------------
+  // 11. EMERGENCY FUND SIZING
+  // -------------------------------------------------------------
+  {
+    id: 'emergency_fund_calc',
+    name: 'Emergency Fund Calculation',
+    category: 'education',
+    keywords: ['emergency fund', 'safety net', 'emergency reserve'],
+    patterns: [/emergency fund/i, /safety net/i, /emergency reserve/i],
+    match: (ctx) => {
+      const q = ctx.normalizedQuestion;
+      return q.includes('emergency fund') || q.includes('safety net') || q.includes('emergency reserve');
+    },
+    execute: (ctx) => {
+      const { transactions = [], accounts = [] } = ctx.storeState;
+      const { prefix } = getTargetPeriod(transactions);
+      const monthlySpent = transactions
+        .filter((t: any) => t.type === 'expense' && t.status === 'completed' && t.date.startsWith(prefix))
+        .reduce((sum: number, t: any) => sum + t.amountMinor, 0) || 2000000;
+
+      const target3Months = monthlySpent * 3;
+      const target6Months = monthlySpent * 6;
+
+      const totalCash = accounts
+        .filter((a: any) => !a.isArchived)
+        .reduce((sum: number, a: any) => {
+          let b = a.openingBalanceMinor;
+          for (const tx of transactions) {
+            if (tx.status === 'flagged') continue;
+            if (tx.accountId === a.id) {
+              if (tx.type === 'expense' || tx.type === 'transfer') b -= tx.amountMinor;
+              if (tx.type === 'income') b += tx.amountMinor;
+            }
+            if (tx.type === 'transfer' && tx.targetAccountId === a.id) b += tx.amountMinor;
+          }
+          return sum + b;
+        }, 0);
+
+      const status = totalCash >= target6Months ? 'Fully Funded (6+ months)' : totalCash >= target3Months ? 'Adequately Funded (3-6 months)' : 'Under-funded (< 3 months)';
+
+      return {
+        intentId: 'emergency_fund_calc',
+        intentCategory: 'education',
+        textResponse: `An **Emergency Fund** protects you from unexpected job loss, medical emergencies, or urgent repairs without touching your long-term investments.
+
+• **Target Size**: 3 to 6 months of living expenses (${formatINR(target3Months)} to ${formatINR(target6Months)} based on your monthly spending of ${formatINR(monthlySpent)}).
+• **Current Liquid Balance**: ${formatINR(totalCash)}.
+• **Status**: **${status}**.
+
+**Where to Park**: Keep 1 month of expenses in a high-yield savings account or liquid mutual fund, and 2-5 months in auto-sweep fixed deposits (FD) with instant withdrawal capability.`,
+        card: {
+          type: 'financial_summary',
+          title: 'Emergency Fund Sizing',
+          subtitle: `Based on ${formatINR(monthlySpent)} / month living cost`,
+          metrics: [
+            { label: 'Current Liquid Cash', value: formatINR(totalCash) },
+            { label: '3-Month Buffer', value: formatINR(target3Months) },
+            { label: '6-Month Buffer', value: formatINR(target6Months) },
+            { label: 'Health Status', value: status },
+          ],
+          actionLink: { label: 'View Liquid Accounts', href: '/app/banking' },
+        },
+        suggestedFollowUps: [
+          'What is my available cash balance?',
+          'Explain the 50/30/20 rule',
+          'What is a SIP?',
+        ],
+      };
+    },
+  },
 ];
 
 /**
@@ -735,29 +1180,94 @@ export function processFinancialQuery(question: string, storeState: any): Intent
     }
   }
 
-  // Graceful Fallback for Unsupported Questions
-  return {
-    intentId: 'unsupported_fallback',
-    intentCategory: 'fallback',
-    textResponse:
-      'I am EXPENZO’s client-side rule-based financial assistant. I calculate verified metrics from your financial ledger, budgets, connected bank accounts, and investment holdings. I cannot predict tomorrow’s stock market swings or access external internet databases.',
-    card: {
-      type: 'unsupported_query',
-      title: 'Supported Query Categories',
-      subtitle: 'Ask questions grounded in your financial records',
-      breakdown: [
-        { name: 'Monthly Expenses & Biggest Outflows', amountMinor: 0, percent: 100 },
-        { name: 'Liquid Cash & Account Balances', amountMinor: 0, percent: 100 },
-        { name: 'Portfolio Valuation & Unrealized Gains', amountMinor: 0, percent: 100 },
-        { name: 'Savings Goals Projections', amountMinor: 0, percent: 100 },
-        { name: 'Financial Literacy (SIP, ETF, Compounding)', amountMinor: 0, percent: 100 },
+  // If question specifically asks for future predictions or unsupported speculation
+  if (
+    normalized.includes('predict') ||
+    normalized.includes('tomorrow') ||
+    normalized.includes('swing') ||
+    normalized.includes('double')
+  ) {
+    return {
+      intentId: 'unsupported_fallback',
+      intentCategory: 'fallback',
+      textResponse:
+        'I am EXPENZO’s client-side rule-based financial assistant. I calculate verified metrics from your financial ledger, budgets, connected bank accounts, and investment holdings. I cannot predict tomorrow’s stock market swings or access external internet databases.',
+      card: {
+        type: 'unsupported_query',
+        title: 'Supported Query Categories',
+        subtitle: 'Ask questions grounded in your financial records',
+        breakdown: [
+          { name: 'Monthly Expenses & Biggest Outflows', amountMinor: 0, percent: 100 },
+          { name: 'Liquid Cash & Account Balances', amountMinor: 0, percent: 100 },
+          { name: 'Portfolio Valuation & Unrealized Gains', amountMinor: 0, percent: 100 },
+          { name: 'Savings Goals Projections', amountMinor: 0, percent: 100 },
+          { name: 'Financial Literacy (SIP, ETF, Compounding)', amountMinor: 0, percent: 100 },
+        ],
+      },
+      suggestedFollowUps: [
+        'How much did I spend this month?',
+        'What is my available cash balance?',
+        'What is my portfolio worth?',
+        'What is a SIP?',
       ],
+    };
+  }
+
+  // Graceful Dynamic Assessment for General Financial Queries
+  const { accounts = [], transactions = [], budgets = [] } = storeState || {};
+  const { label, prefix } = getTargetPeriod(transactions);
+
+  const totalSpent = transactions
+    .filter((t: any) => t.type === 'expense' && t.status === 'completed' && t.date.startsWith(prefix))
+    .reduce((sum: number, t: any) => sum + t.amountMinor, 0);
+
+  const totalIncome = transactions
+    .filter((t: any) => t.type === 'income' && t.status === 'completed' && t.date.startsWith(prefix))
+    .reduce((sum: number, t: any) => sum + t.amountMinor, 0);
+
+  const totalCash = accounts
+    .filter((a: any) => !a.isArchived)
+    .reduce((sum: number, a: any) => {
+      let b = a.openingBalanceMinor;
+      for (const tx of transactions) {
+        if (tx.status === 'flagged') continue;
+        if (tx.accountId === a.id) {
+          if (tx.type === 'expense' || tx.type === 'transfer') b -= tx.amountMinor;
+          if (tx.type === 'income') b += tx.amountMinor;
+        }
+        if (tx.type === 'transfer' && tx.targetAccountId === a.id) b += tx.amountMinor;
+      }
+      return sum + b;
+    }, 0);
+
+  return {
+    intentId: 'general_financial_assessment',
+    intentCategory: 'education',
+    textResponse: `Here is your current financial posture based on your active verified records for ${label}:
+
+• **Available Liquid Cash**: ${formatINR(totalCash)} across ${accounts.length} linked account(s).
+• **Monthly Inflow**: ${formatINR(totalIncome)}.
+• **Monthly Outflow**: ${formatINR(totalSpent)}.
+• **Active Budgets**: ${budgets.length} configured.
+
+You can ask me to break down your expenses, analyze your bank balances, track your budgets, or explain investment strategies like SIPs and the 50/30/20 rule.`,
+    card: {
+      type: 'financial_summary',
+      title: `${label} Financial Snapshot`,
+      subtitle: `${transactions.length} Total Verified Records`,
+      metrics: [
+        { label: 'Liquid Cash', value: formatINR(totalCash) },
+        { label: 'Spent This Month', value: formatINR(totalSpent) },
+        { label: 'Income This Month', value: formatINR(totalIncome) },
+        { label: 'Active Budgets', value: budgets.length.toString() },
+      ],
+      actionLink: { label: 'Go to Financial Overview', href: '/app/dashboard' },
     },
     suggestedFollowUps: [
       'How much did I spend this month?',
+      'What was my biggest expense?',
       'What is my available cash balance?',
-      'What is my portfolio worth?',
-      'What is a SIP?',
+      'Explain the 50/30/20 rule',
     ],
   };
 }

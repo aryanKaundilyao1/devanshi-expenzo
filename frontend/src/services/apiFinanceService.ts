@@ -1,4 +1,7 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { useFinanceStore } from '@/store/useFinanceStore';
+import { callGeminiFlash, isGeminiConfigured } from '@/features/ai/services/geminiService';
+import { processFinancialQuery } from '@/features/ai/intents/intentRegistry';
 import {
   FinanceServiceContract,
   BankingServiceContract,
@@ -363,21 +366,44 @@ export const apiAIService: AIServiceContract = {
   },
 
   async processPrompt(prompt: string) {
-    if (!isSupabaseConfigured) {
-      throw new Error('Supabase not configured for live AI.');
+    // 1. If Gemini Free AI is configured (from localStorage or environment variables), call Gemini Flash
+    if (isGeminiConfigured()) {
+      try {
+        const financeState = useFinanceStore.getState();
+        const geminiResult = await callGeminiFlash(prompt, financeState);
+        return {
+          text: geminiResult.text,
+          structuredCard: geminiResult.card,
+          intent: geminiResult.intent,
+        };
+      } catch (geminiError) {
+        console.warn('[apiAIService] Gemini Flash direct API error, falling back:', geminiError);
+      }
     }
 
-    // Call Supabase Edge Function 'ai-assistant'
-    const { data, error } = await supabase.functions.invoke('ai-assistant', {
-      body: { prompt },
-    });
+    // 2. Try Supabase Edge Function 'ai-assistant' if available
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase.functions.invoke('ai-assistant', {
+          body: { prompt },
+        });
 
-    if (error) {
-      console.warn('[apiAIService] Edge function error, falling back:', error);
-      throw error;
+        if (!error && data && data.text) {
+          return data;
+        }
+      } catch (edgeError) {
+        // Fall through to local intelligent engine
+      }
     }
 
-    return data;
+    // 3. Robust client-side financial intelligence engine
+    const financeState = useFinanceStore.getState();
+    const result = processFinancialQuery(prompt, financeState);
+    return {
+      text: result.textResponse,
+      structuredCard: result.card,
+      intent: result.intentId,
+    };
   },
 };
 

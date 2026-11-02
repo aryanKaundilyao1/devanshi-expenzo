@@ -14,13 +14,16 @@ import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { FinancialAccount, Category, TransactionType, Transaction } from '@/types/finance';
 import { useFinanceStore } from '@/store/useFinanceStore';
+import { AccountModal } from '@/features/banking/components/AccountModal';
 import {
   PlusCircle,
+  Plus,
   ArrowDownRight,
   ArrowUpRight,
   ArrowRightLeft,
   AlertCircle,
   CheckCircle2,
+  Building2,
 } from 'lucide-react';
 
 interface TransactionModalProps {
@@ -74,15 +77,21 @@ export function TransactionModal({
   const addTransaction = useFinanceStore((state) => state.addTransaction);
   const updateTransaction = useFinanceStore((state) => state.updateTransaction);
   const getAccountBalance = useFinanceStore((state) => state.getAccountBalance);
+  const storeAccounts = useFinanceStore((state) => state.accounts);
+
+  // Fallback to store accounts if passed accounts prop is empty
+  const activeAccounts = accounts && accounts.length > 0 ? accounts : storeAccounts;
 
   const [activeType, setActiveType] = useState<TransactionType>(
     transactionToEdit ? transactionToEdit.type : initialType
   );
   const [successToast, setSuccessToast] = useState(false);
   const [balanceWarning, setBalanceWarning] = useState<string | null>(null);
+  const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
+  const [accountSelectTarget, setAccountSelectTarget] = useState<'source' | 'target'>('source');
 
-  const defaultAccount = accounts[0]?.id || '';
-  const defaultTargetAccount = accounts[1]?.id || '';
+  const defaultAccount = activeAccounts[0]?.id || '';
+  const defaultTargetAccount = activeAccounts[1]?.id || '';
 
   const {
     register,
@@ -105,6 +114,14 @@ export function TransactionModal({
     },
   });
 
+  // Keep accountId updated if accounts were empty on initial mount and then added
+  const currentAccountId = watch('accountId');
+  React.useEffect(() => {
+    if (!currentAccountId && activeAccounts.length > 0) {
+      setValue('accountId', activeAccounts[0].id, { shouldValidate: true });
+    }
+  }, [activeAccounts, currentAccountId, setValue]);
+
   // Sync form when transactionToEdit or open state changes
   React.useEffect(() => {
     if (open) {
@@ -125,8 +142,8 @@ export function TransactionModal({
         reset({
           type: initialType,
           amount: '',
-          accountId: defaultAccount,
-          targetAccountId: defaultTargetAccount,
+          accountId: activeAccounts[0]?.id || '',
+          targetAccountId: activeAccounts[1]?.id || '',
           category: initialType === 'income' ? 'Salary' : initialType === 'transfer' ? 'Transfer' : 'Food & Dining',
           merchant: '',
           date: defaultDate,
@@ -134,7 +151,7 @@ export function TransactionModal({
         });
       }
     }
-  }, [open, transactionToEdit, initialType, defaultAccount, defaultTargetAccount, defaultDate, reset]);
+  }, [open, transactionToEdit, initialType, activeAccounts, defaultTargetAccount, defaultDate, reset]);
 
   const selectedAccountId = watch('accountId');
   const enteredAmount = watch('amount');
@@ -219,7 +236,8 @@ export function TransactionModal({
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md p-6 border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111C30]">
         <DialogHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center justify-between">
@@ -251,6 +269,32 @@ export function TransactionModal({
           <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-center gap-2 text-xs text-amber-800 dark:text-amber-200">
             <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
             <span>{balanceWarning}</span>
+          </div>
+        )}
+
+        {activeAccounts.length === 0 && (
+          <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-start justify-between gap-3 text-xs animate-in fade-in-50">
+            <div className="flex items-start gap-2.5 text-amber-900 dark:text-amber-200">
+              <Building2 className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+              <div>
+                <span className="font-bold block">No Bank Accounts Linked</span>
+                <span className="text-[11px] text-amber-700 dark:text-amber-300">
+                  You need at least one bank account or cash wallet to record transactions and track balances.
+                </span>
+              </div>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                setAccountSelectTarget('source');
+                setIsAddAccountOpen(true);
+              }}
+              className="shrink-0 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold h-8 px-2.5 shadow-xs"
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Add Bank
+            </Button>
           </div>
         )}
 
@@ -321,22 +365,54 @@ export function TransactionModal({
 
           {/* Account Selection */}
           <div className="space-y-1">
-            <label
-              htmlFor="transaction-source-account"
-              className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300"
-            >
-              {activeType === 'transfer' ? 'Source Account (From)' : 'Account'}
-            </label>
+            <div className="flex items-center justify-between">
+              <label
+                htmlFor="transaction-source-account"
+                className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+              >
+                {activeType === 'transfer' ? 'Source Account (From)' : 'Bank / Account'}
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setAccountSelectTarget('source');
+                  setIsAddAccountOpen(true);
+                }}
+                className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 flex items-center gap-1 hover:underline cursor-pointer transition-colors"
+              >
+                <Plus className="h-3 w-3" />
+                <span>+ Add Bank Account</span>
+              </button>
+            </div>
             <select
               id="transaction-source-account"
               className="flex h-10 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111C30] px-3.5 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               {...register('accountId')}
+              onChange={(e) => {
+                if (e.target.value === '__NEW_ACCOUNT__') {
+                  setAccountSelectTarget('source');
+                  setIsAddAccountOpen(true);
+                  // Don't commit __NEW_ACCOUNT__ as the accountId
+                  return;
+                }
+                register('accountId').onChange(e);
+              }}
             >
-              {accounts.map((acc) => (
-                <option key={acc.id} value={acc.id}>
-                  {acc.name} ({acc.institution}) — ₹{(getAccountBalance(acc.id) / 100).toLocaleString('en-IN')}
-                </option>
-              ))}
+              {activeAccounts.length === 0 ? (
+                <option value="" disabled>-- No Bank Accounts (Click "+ Add Bank Account" above) --</option>
+              ) : (
+                <>
+                  <option value="" disabled>-- Select Bank Account --</option>
+                  {activeAccounts.map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.name} ({acc.institution}) — ₹{(getAccountBalance(acc.id) / 100).toLocaleString('en-IN')}
+                    </option>
+                  ))}
+                  <option value="__NEW_ACCOUNT__" className="font-bold text-emerald-600">
+                    + Add New Bank Account...
+                  </option>
+                </>
+              )}
             </select>
             {errors.accountId && <p className="text-xs text-red-500">{errors.accountId.message}</p>}
           </div>
@@ -344,22 +420,49 @@ export function TransactionModal({
           {/* Target Account (Only for transfers) */}
           {activeType === 'transfer' && (
             <div className="space-y-1">
-              <label
-                htmlFor="transaction-target-account"
-                className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300"
-              >
-                Destination Account (To)
-              </label>
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="transaction-target-account"
+                  className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                >
+                  Destination Account (To)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAccountSelectTarget('target');
+                    setIsAddAccountOpen(true);
+                  }}
+                  className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 flex items-center gap-1 hover:underline cursor-pointer transition-colors"
+                >
+                  <Plus className="h-3 w-3" />
+                  <span>+ Add Bank Account</span>
+                </button>
+              </div>
               <select
                 id="transaction-target-account"
                 className="flex h-10 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111C30] px-3.5 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 {...register('targetAccountId')}
+                onChange={(e) => {
+                  if (e.target.value === '__NEW_ACCOUNT__') {
+                    setAccountSelectTarget('target');
+                    setIsAddAccountOpen(true);
+                    return;
+                  }
+                  register('targetAccountId').onChange(e);
+                }}
               >
-                {accounts.map((acc) => (
+                {activeAccounts.length < 2 && (
+                  <option value="" disabled>-- Requires at least 2 accounts for transfer --</option>
+                )}
+                {activeAccounts.map((acc) => (
                   <option key={acc.id} value={acc.id}>
                     {acc.name} ({acc.institution})
                   </option>
                 ))}
+                <option value="__NEW_ACCOUNT__" className="font-bold text-emerald-600">
+                  + Add New Bank Account...
+                </option>
               </select>
               {errors.targetAccountId && (
                 <p className="text-xs text-red-500">{errors.targetAccountId.message}</p>
@@ -433,5 +536,21 @@ export function TransactionModal({
         </form>
       </DialogContent>
     </Dialog>
+
+    <AccountModal
+      open={isAddAccountOpen}
+      onOpenChange={setIsAddAccountOpen}
+      onSuccess={(newAccount) => {
+        setIsAddAccountOpen(false);
+        if (newAccount?.id) {
+          if (accountSelectTarget === 'target') {
+            setValue('targetAccountId', newAccount.id, { shouldValidate: true });
+          } else {
+            setValue('accountId', newAccount.id, { shouldValidate: true });
+          }
+        }
+      }}
+    />
+    </>
   );
 }
