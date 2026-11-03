@@ -17,6 +17,7 @@ import {
   X,
   ShieldCheck,
   MoreHorizontal,
+  Users,
 } from 'lucide-react';
 
 export function MobileNav() {
@@ -32,6 +33,7 @@ export function MobileNav() {
     { title: 'Budgets', path: '/app/budgets', icon: Target },
     { title: 'Banking', path: '/app/banking', icon: Building2 },
     { title: 'Investments', path: '/app/investments', icon: TrendingUp },
+    { title: 'Family', path: '/app/family', icon: Users },
     { title: 'AI Assistant', path: '/app/ai-assistant', icon: Bot },
     { title: 'AI Insights', path: '/app/ai-insights', icon: Sparkles },
     { title: 'Financial Planner', path: '/app/financial-planner', icon: Target },

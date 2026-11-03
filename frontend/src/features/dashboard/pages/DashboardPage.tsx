@@ -14,6 +14,7 @@ import { AIInsightsPreview } from '../components/AIInsightsPreview';
 import { NetWorthBreakdownModal } from '../components/NetWorthBreakdownModal';
 import { TransactionModal } from '../components/TransactionModal';
 import { DashboardCustomizeDialog } from '../components/DashboardCustomizeDialog';
+import { ExpenditureHoldingsSection } from '../components/ExpenditureHoldingsSection';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { PlusCircle, Sparkles, AlertCircle } from 'lucide-react';
@@ -43,6 +44,7 @@ export function DashboardPage() {
     upcomingBills,
     isEmptyWorkspace,
     accounts,
+    transactions,
     categories,
     holdings,
     quotes,
@@ -325,6 +327,15 @@ export function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* SECTION D: Expenditure & Holdings Analytics */}
+      <ExpenditureHoldingsSection
+        accounts={accounts}
+        holdings={holdings}
+        quotes={quotes}
+        transactions={transactions}
+        demoAsOf={demoAsOf}
+      />
 
       {/* MODALS */}
       <NetWorthBreakdownModal

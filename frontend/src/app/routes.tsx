@@ -93,6 +93,13 @@ import { ConnectionsSettingsPage } from '@/features/settings/pages/ConnectionsSe
 import { PrivacySettingsPage } from '@/features/settings/pages/PrivacySettingsPage';
 import { NotificationSettingsPage } from '@/features/settings/pages/NotificationSettingsPage';
 
+// Family Finance Management & Seat Optimization (CSCR2600 PBL-1)
+import { FamilyPage } from '@/features/family/pages/FamilyPage';
+import { FamilyMembersPage } from '@/features/family/pages/FamilyMembersPage';
+import { SharedExpensesPage } from '@/features/family/pages/SharedExpensesPage';
+import { FamilyPlansPage } from '@/features/family/pages/FamilyPlansPage';
+import { FamilyAnalyticsPage } from '@/features/family/pages/FamilyAnalyticsPage';
+
 export const router = createBrowserRouter([
   // 1. Public Marketing Website (Phase 2 Implemented)
   {
@@ -299,6 +306,28 @@ export const router = createBrowserRouter([
       {
         path: 'investments/analytics',
         element: <PortfolioAnalyticsPage />,
+      },
+
+      // Family Finance Management & Seat Optimization (CSCR2600 PBL-1)
+      {
+        path: 'family',
+        element: <FamilyPage />,
+      },
+      {
+        path: 'family/members',
+        element: <FamilyMembersPage />,
+      },
+      {
+        path: 'family/shared-expenses',
+        element: <SharedExpensesPage />,
+      },
+      {
+        path: 'family/plans',
+        element: <FamilyPlansPage />,
+      },
+      {
+        path: 'family/analytics',
+        element: <FamilyAnalyticsPage />,
       },
 
       // Intelligence Group (Phase 7B Implemented)

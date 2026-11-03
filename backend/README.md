@@ -13,11 +13,13 @@ backend/
 ├── 20261030000001_rls_policies.sql         # Migration 2: Row Level Security (RLS) multi-tenant policies
 ├── 20261030000002_atomic_financial_rpcs.sql# Migration 3: execute_transfer and pay_bill stored procedures
 ├── 20261031000000_complete_production_backend.sql # Migration 4: Auth triggers, indexes & health telemetry
+├── 20261103000000_family_finance_seat_analytics.sql# Migration 5: Family workspaces, seat plans, shared allocations, portfolio snapshots
 ├── migrations/                             # Mirrored sequential migration folder
 │   ├── 20261030000000_initial_schema.sql
 │   ├── 20261030000001_rls_policies.sql
 │   ├── 20261030000002_atomic_financial_rpcs.sql
 │   ├── 20261031000000_complete_production_backend.sql
+│   ├── 20261103000000_family_finance_seat_analytics.sql
 │   └── combined_production_migration.sql
 └── functions/                              # Supabase Serverless Edge Functions (Deno Runtime)
     ├── ai-assistant/index.ts               # Secure server-side Gemini Flash proxy with zero client key leakage
@@ -104,3 +106,4 @@ npx supabase functions deploy market-data --no-verify-jwt
 # Set secure environment secret on Supabase backend
 npx supabase secrets set GEMINI_API_KEY="<YOUR_GEMINI_API_KEY>"
 ```
+

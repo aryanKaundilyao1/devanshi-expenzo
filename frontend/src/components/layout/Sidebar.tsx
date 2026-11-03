@@ -19,7 +19,9 @@ import {
   PanelLeftClose,
   PanelLeft,
   ShieldCheck,
+  Users,
 } from 'lucide-react';
+import { WorkspaceSwitcher } from '@/features/family/components/WorkspaceSwitcher';
 
 interface NavItem {
   title: string;
@@ -69,6 +71,18 @@ const OVERVIEW_ITEMS: NavItem[] = [
       { title: 'Analytics', path: '/app/investments/analytics' },
     ],
   },
+  {
+    title: 'Family',
+    path: '/app/family',
+    icon: Users,
+    subItems: [
+      { title: 'Overview', path: '/app/family' },
+      { title: 'Members & Seats', path: '/app/family/members' },
+      { title: 'Shared Expenses', path: '/app/family/shared-expenses' },
+      { title: 'Analytics', path: '/app/family/analytics' },
+      { title: 'Plans & Billing', path: '/app/family/plans' },
+    ],
+  },
 ];
 
 const INTELLIGENCE_ITEMS: NavItem[] = [
@@ -93,6 +107,7 @@ export function Sidebar() {
     Expenses: location.pathname.startsWith('/app/expenses') || location.pathname.startsWith('/app/transactions') || location.pathname.startsWith('/app/categories') || location.pathname.startsWith('/app/budgets') || location.pathname.startsWith('/app/recurring'),
     Banking: location.pathname.startsWith('/app/banking'),
     Investments: location.pathname.startsWith('/app/investments'),
+    Family: location.pathname.startsWith('/app/family'),
   });
 
   const toggleSubmenu = (title: string) => {
@@ -228,6 +243,11 @@ export function Sidebar() {
         >
           {sidebarCollapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
         </button>
+      </div>
+
+      {/* Workspace Switcher (Personal vs Family) */}
+      <div className="px-3 pt-3">
+        <WorkspaceSwitcher collapsed={sidebarCollapsed} />
       </div>
 
       {/* Nav List */}

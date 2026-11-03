@@ -203,6 +203,7 @@ export function useDashboardData() {
     upcomingBills,
     isEmptyWorkspace,
     accounts,
+    transactions,
     categories,
     holdings,
     quotes,
