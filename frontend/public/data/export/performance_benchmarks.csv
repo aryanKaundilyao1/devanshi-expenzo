@@ -1,0 +1,5 @@
+Benchmark Step,Duration (seconds),Metric,Value
+Stream Scan Duration,0.3158,Rows Processed,80978
+Stream Throughput,0.3158,Throughput (rows/sec),256441.9
+Multi-dimensional Aggregation,0.1227,Aggregated Months,216
+Total Pipeline Runtime,0.4538,Total Cohort Records,80977

@@ -1,0 +1,4 @@
+Scenario ID,Title,Category,Annual Projected Savings USD,Annual Projected Savings INR,Confidence,Assumptions
+rec-opt-discretionary,Discretionary Outflow Moderation (Dining & Shopping),Dining & Shopping,6579.46,546095.12,0.92,Assumes an achievable 15% reduction in non-essential restaurant and retail shopping through meal planning and substitution.
+rec-opt-merchant-concentration,Wholesale Procurement & Spend Consolidation,Groceries,3862.12,320556.21,0.88,Assumes 8% direct cost savings through bulk wholesale price points and bundled retail promotions.
+rec-opt-transit-commute,Commuter Transit & Fuel Optimization,Transport,8417.04,698614.49,0.84,"Assumes 12% savings through route optimization, transit pass subsidies, and fuel loyalty rewards."

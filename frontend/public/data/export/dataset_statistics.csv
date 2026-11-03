@@ -1,0 +1,11 @@
+Metric,Value,Unit,Notes
+Total Raw Dataset Rows,24386900,records,credit_card_transactions-ibm_v2.csv
+Total Demographic Users,2000,users,sd254_users.csv
+Total Cards Registered,6146,cards,sd254_cards.csv
+User 0 Isolated Slice Rows,19963,records,User0_credit_card_transactions.csv
+Cohort Filtered Rows (Users 0-3),80977,records,Integrated multi-member cohort
+Duplicate Records Isolated,0,records,Zero duplicates allowed
+Total Cohort Spend USD,"$5,359,206.45",USD,Deterministic minor cents
+Total Cohort Spend INR,"₹444,814,135.35",INR,Fixed rate 1 USD = ₹83.00
+Total Active Months,216,months,2002-09 to 2020-02
+Stream Throughput,"256,441.9",records/sec,Benchmarked streaming pipeline

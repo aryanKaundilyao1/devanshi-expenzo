@@ -134,3 +134,4 @@ export function WorkspaceSwitcher({ className, collapsed = false }: WorkspaceSwi
     </DropdownMenu>
   );
 }
+

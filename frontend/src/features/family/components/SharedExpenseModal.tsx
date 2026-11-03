@@ -315,3 +315,4 @@ export function SharedExpenseModal({
     </Dialog>
   );
 }
+

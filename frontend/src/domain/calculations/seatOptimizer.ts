@@ -116,3 +116,4 @@ export function evaluateSeatOptimization(params: {
     isSimulated: true,
   };
 }
+

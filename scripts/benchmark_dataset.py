@@ -189,3 +189,4 @@ if __name__ == "__main__":
         except ValueError:
             count = 50000
     run_benchmark(batch_size=count)
+

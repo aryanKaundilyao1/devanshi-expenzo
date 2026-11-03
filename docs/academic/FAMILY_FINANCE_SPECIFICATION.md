@@ -170,3 +170,4 @@ Executing `tsc -b && vite build` completed in **3.99 seconds**, generating optim
 4. **Test Seat Optimization:** Open `/app/family/plans` to observe seat capacity utilization (3 active + 1 pending = 4/4 seats used) and simulate plan adjustments.
 5. **Record Exact-Sum Shared Expense:** Open `/app/family/shared-expenses` and trigger the Shared Expense Modal to observe real-time enforcement of the exact-sum allocation constraint down to single paise.
 6. **Inspect Dual-Axis Dashboard Analytics:** Open the main Dashboard (`/app/dashboard`) to inspect the **Expenditure Flows vs. Financial Holdings** synchronized dual-axis visualization.
+

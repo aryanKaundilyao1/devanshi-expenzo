@@ -48,8 +48,10 @@ import {
   Info,
   Database,
   CheckCircle2,
+  Sliders,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { datasetService, USD_TO_INR_RATE } from '@/features/intelligence/services/datasetService';
 
 const MEMBER_COLORS = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EC4899', '#06B6D4'];
 const CATEGORY_COLORS: Record<string, string> = {
@@ -80,6 +82,9 @@ export function FamilyAnalyticsPage() {
   const invitations = currentFamily?.invitations || [];
 
   // Filter State
+  const [workspaceView, setWorkspaceView] = useState<'family' | 'synthetic_cohort'>('family');
+  const [cohortCurrency, setCohortCurrency] = useState<'USD' | 'INR'>('USD');
+  const datasetSummary = useMemo(() => datasetService.getDatasetSummary(), []);
   const [periodFilter, setPeriodFilter] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>(members.map((m) => m.userId));
   const [importStatus, setImportStatus] = useState<string | null>(null);
@@ -253,6 +258,155 @@ export function FamilyAnalyticsPage() {
           <span>{importStatus}</span>
         </div>
       )}
+
+      {/* Perspective Switcher: Household Workspace vs. Dataset Synthetic Household Cohort */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs">
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setWorkspaceView('family')}
+            className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
+              workspaceView === 'family'
+                ? 'bg-white dark:bg-[#111C30] text-indigo-600 dark:text-indigo-400 shadow-xs'
+                : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            Household Workspace (Singh Family)
+          </button>
+          <button
+            type="button"
+            onClick={() => setWorkspaceView('synthetic_cohort')}
+            className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
+              workspaceView === 'synthetic_cohort'
+                ? 'bg-white dark:bg-[#111C30] text-indigo-600 dark:text-indigo-400 shadow-xs'
+                : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            Synthetic Dataset Household Cohort (Users 0–3, 80k Txs)
+          </button>
+        </div>
+
+        {workspaceView === 'synthetic_cohort' && (
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-slate-400 font-semibold">Currency:</span>
+            <button
+              type="button"
+              onClick={() => setCohortCurrency(cohortCurrency === 'USD' ? 'INR' : 'USD')}
+              className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#111C30] border border-slate-200 dark:border-slate-700 font-bold text-indigo-600 dark:text-indigo-400"
+            >
+              {cohortCurrency === 'USD' ? '$ USD (Observed)' : '₹ INR (1:83)'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* SYNTHETIC COHORT VIEW */}
+      {workspaceView === 'synthetic_cohort' && (
+        <div className="space-y-6">
+          {/* Scientific Disclaimer */}
+          <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-950 dark:text-amber-200 flex items-start gap-3">
+            <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="leading-relaxed">
+              <strong>Synthetic Household Evaluation Construct:</strong> The source IBM dataset models individual autonomous agents without genuine biological family relations. Users 0, 1, 2, and 3 are combined here as a synthetic household cohort for multi-member financial efficiency and allocation benchmarking.
+            </div>
+          </div>
+
+          {/* Member Efficiency Highlights */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+            <Card className="p-4 bg-white dark:bg-[#111C30] border-slate-200 dark:border-slate-800 space-y-1">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Highest Savings Rate</span>
+              <p className="text-base font-black text-slate-900 dark:text-white">Everlee Clark (User 3)</p>
+              <span className="text-emerald-600 font-bold">66.1% of estimated income</span>
+            </Card>
+
+            <Card className="p-4 bg-white dark:bg-[#111C30] border-slate-200 dark:border-slate-800 space-y-1">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Highest Absolute Saver</span>
+              <p className="text-base font-black text-slate-900 dark:text-white">Everlee Clark (User 3)</p>
+              <span className="text-indigo-600 font-bold">
+                {cohortCurrency === 'USD' ? '+$13,768 / mo' : `+₹${(13768 * 83).toLocaleString()}/mo`}
+              </span>
+            </Card>
+
+            <Card className="p-4 bg-white dark:bg-[#111C30] border-slate-200 dark:border-slate-800 space-y-1">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Lowest Discretionary Ratio</span>
+              <p className="text-base font-black text-slate-900 dark:text-white">Saanvi Lee (User 2, Age 81)</p>
+              <span className="text-blue-600 font-bold">Essential medical/pharmacy focus</span>
+            </Card>
+
+            <Card className="p-4 bg-white dark:bg-[#111C30] border-slate-200 dark:border-slate-800 space-y-1">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Largest Spend Reduction Opp</span>
+              <p className="text-base font-black text-slate-900 dark:text-white">Hazel Robinson (User 0)</p>
+              <span className="text-rose-600 font-bold">Discretionary dining & retail trim</span>
+            </Card>
+          </div>
+
+          {/* Member Financial Efficiency Table */}
+          <Card className="p-6 bg-white dark:bg-[#111C30] border-slate-200 dark:border-slate-800 space-y-4 shadow-xs">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                Member Financial Efficiency & Comparative Evaluation
+              </h3>
+              <Badge variant="outline" className="text-[10px] font-bold">
+                4 Cohort Members
+              </Badge>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 uppercase text-[10px] font-bold">
+                  <tr>
+                    <th className="px-3 py-2">Rank / Member</th>
+                    <th className="px-3 py-2">Age</th>
+                    <th className="px-3 py-2">FICO</th>
+                    <th className="px-3 py-2 text-right">Stated Annual Income</th>
+                    <th className="px-3 py-2 text-right">Monthly Income (Est)</th>
+                    <th className="px-3 py-2 text-right">Avg Monthly Spend</th>
+                    <th className="px-3 py-2 text-right">Net Savings (Est)</th>
+                    <th className="px-3 py-2 text-right">Savings Rate</th>
+                    <th className="px-3 py-2 text-right">Discretionary Ratio</th>
+                    <th className="px-3 py-2 text-right">Total Txs</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                  {datasetSummary.memberRankings.map((m, idx) => (
+                    <tr key={m.userId} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                      <td className="px-3 py-2.5 font-medium whitespace-nowrap">
+                        <span className="font-bold text-slate-900 dark:text-white">#{idx + 1} {m.name}</span>
+                        <span className="block text-[10px] text-slate-400">User ID: {m.userId}</span>
+                      </td>
+                      <td className="px-3 py-2.5 font-mono">{m.age}</td>
+                      <td className="px-3 py-2.5 font-mono font-bold text-indigo-600">{m.ficoScore}</td>
+                      <td className="px-3 py-2.5 text-right font-mono">
+                        {datasetService.formatCurrency(m.yearlyIncomeUsd, cohortCurrency)}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono">
+                        {datasetService.formatCurrency(m.monthlyIncomeUsdEstimate, cohortCurrency)}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono">
+                        {datasetService.formatCurrency(m.avgMonthlySpendUsd, cohortCurrency)}
+                      </td>
+                      <td className={`px-3 py-2.5 text-right font-mono font-bold ${m.estMonthlyNetSavingsUsd >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {datasetService.formatCurrency(m.estMonthlyNetSavingsUsd, cohortCurrency)}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono font-black text-indigo-600">{m.savingsRate}%</td>
+                      <td className="px-3 py-2.5 text-right font-mono">{m.discretionarySpendingRatio}%</td>
+                      <td className="px-3 py-2.5 text-right font-mono">{m.totalTransactions.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <p className="text-[10px] text-slate-400 italic pt-1">
+              *Transparent Methodology: Financial responsibility is not equated with minimal spending. Income scale, essential healthcare outlays, and debt obligations are independently modeled.
+            </p>
+          </Card>
+        </div>
+      )}
+
+      {/* ACTIVE HOUSEHOLD WORKSPACE VIEW */}
+      {workspaceView === 'family' && (
+        <div className="space-y-6">
 
       {/* Filter Toolbar: Period + Member Multi-Select */}
       <Card className="p-4 border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111C30] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -620,6 +774,9 @@ export function FamilyAnalyticsPage() {
           </div>
         </Card>
       </div>
+        </div>
+      )}
     </div>
   );
 }
+

@@ -20,6 +20,8 @@ import {
   PanelLeft,
   ShieldCheck,
   Users,
+  CreditCard,
+  BookOpen,
 } from 'lucide-react';
 import { WorkspaceSwitcher } from '@/features/family/components/WorkspaceSwitcher';
 
@@ -86,12 +88,15 @@ const OVERVIEW_ITEMS: NavItem[] = [
 ];
 
 const INTELLIGENCE_ITEMS: NavItem[] = [
+  { title: 'Transaction Intelligence', path: '/app/transaction-intelligence', icon: CreditCard },
+  { title: 'Financial Optimization', path: '/app/financial-optimization', icon: TrendingUp },
   { title: 'AI Assistant', path: '/app/ai-assistant', icon: Bot },
   { title: 'AI Insights', path: '/app/ai-insights', icon: Sparkles },
   { title: 'Financial Planner', path: '/app/financial-planner', icon: Target },
 ];
 
 const MORE_ITEMS: NavItem[] = [
+  { title: 'Research Analytics', path: '/app/research-analytics', icon: BookOpen },
   { title: 'Reports', path: '/app/reports', icon: FileText },
   { title: 'Financial Learning', path: '/app/learning', icon: GraduationCap },
   { title: 'Notifications', path: '/app/notifications', icon: Bell },

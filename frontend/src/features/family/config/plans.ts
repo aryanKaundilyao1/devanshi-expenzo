@@ -67,3 +67,4 @@ export function getPlanConfig(planId: string): FamilyPlan {
 export function getAllPlans(): FamilyPlan[] {
   return Object.values(FAMILY_PLANS);
 }
+

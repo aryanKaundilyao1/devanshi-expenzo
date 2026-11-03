@@ -19,5 +19,13 @@ dist-ssr/
 .supabase/
 supabase/.temp/
 
+# Raw Transaction and Credit Card Datasets (DO NOT COMMIT)
+credit_card_transactions-ibm_v*.csv
+sd254_cards.csv
+sd254_users.csv
+User0_credit_card_transactions*.csv
+data/external/
+
+
 
 

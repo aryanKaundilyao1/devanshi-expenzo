@@ -100,6 +100,11 @@ import { SharedExpensesPage } from '@/features/family/pages/SharedExpensesPage';
 import { FamilyPlansPage } from '@/features/family/pages/FamilyPlansPage';
 import { FamilyAnalyticsPage } from '@/features/family/pages/FamilyAnalyticsPage';
 
+// Financial Intelligence & Research Analytics (CSCR2600 PBL-1)
+import { TransactionIntelligencePage } from '@/features/intelligence/pages/TransactionIntelligencePage';
+import { FinancialOptimizationPage } from '@/features/intelligence/pages/FinancialOptimizationPage';
+import { ResearchAnalyticsPage } from '@/features/intelligence/pages/ResearchAnalyticsPage';
+
 export const router = createBrowserRouter([
   // 1. Public Marketing Website (Phase 2 Implemented)
   {
@@ -330,7 +335,15 @@ export const router = createBrowserRouter([
         element: <FamilyAnalyticsPage />,
       },
 
-      // Intelligence Group (Phase 7B Implemented)
+      // Intelligence Group (Phase 7B & Dataset Integration Implemented)
+      {
+        path: 'transaction-intelligence',
+        element: <TransactionIntelligencePage />,
+      },
+      {
+        path: 'financial-optimization',
+        element: <FinancialOptimizationPage />,
+      },
       {
         path: 'ai-assistant',
         element: <AIAssistantPage />,
@@ -362,6 +375,10 @@ export const router = createBrowserRouter([
       },
 
       // More Group
+      {
+        path: 'research-analytics',
+        element: <ResearchAnalyticsPage />,
+      },
       // Reports Group (Phase 7D Implemented)
       {
         path: 'reports',
