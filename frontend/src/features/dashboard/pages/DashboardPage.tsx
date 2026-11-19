@@ -17,7 +17,8 @@ import { DashboardCustomizeDialog } from '../components/DashboardCustomizeDialog
 import { ExpenditureHoldingsSection } from '../components/ExpenditureHoldingsSection';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { PlusCircle, Sparkles, AlertCircle } from 'lucide-react';
+import { PlusCircle, Sparkles, AlertCircle, Database, Play, CheckCircle2 } from 'lucide-react';
+import { useFinanceStore } from '@/store/useFinanceStore';
 
 export function DashboardPage() {
   const {
@@ -58,6 +59,7 @@ export function DashboardPage() {
   const [netWorthModalOpen, setNetWorthModalOpen] = useState(false);
   const [addTxModalOpen, setAddTxModalOpen] = useState(false);
   const [customizeModalOpen, setCustomizeModalOpen] = useState(false);
+  const { isDatasetActive, runDataset } = useFinanceStore();
 
   const persona = activeUser.persona || 'professional';
 
@@ -70,6 +72,46 @@ export function DashboardPage() {
         onOpenAddTransaction={() => setAddTxModalOpen(true)}
         onOpenCustomize={() => setCustomizeModalOpen(true)}
       />
+
+      {/* SECTION A1: Dataset Status Banner */}
+      {!isDatasetActive ? (
+        <Card className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs text-slate-800 dark:text-slate-200 shadow-sm animate-in fade-in-50">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+              <Database className="h-5 w-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                <span>Null Data Mode Active</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                  Empty State
+                </span>
+              </h4>
+              <p className="text-slate-600 dark:text-slate-400 text-xs mt-0.5">
+                The workspace is currently unpopulated (0 transactions). Click <strong>Run Dataset</strong> to ingest 1,648 external transactions, 19 card accounts, and 4 family members from the external dataset.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => runDataset()}
+            className="text-xs shrink-0 gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold shadow-md shadow-emerald-500/20 cursor-pointer"
+          >
+            <Play className="h-3.5 w-3.5 fill-current" />
+            <span>Run Dataset Now</span>
+          </Button>
+        </Card>
+      ) : (
+        <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-300">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span className="font-medium">
+              <strong>External Dataset Active:</strong> 1,648 real credit card transactions loaded across 19 accounts.
+            </span>
+          </div>
+          <span className="text-[11px] opacity-75 hidden sm:inline font-mono">Source: data/external/archive/</span>
+        </div>
+      )}
 
       {/* Empty Workspace Banner Notice if applicable */}
       {isEmptyWorkspace && (

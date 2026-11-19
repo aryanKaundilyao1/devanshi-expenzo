@@ -29,3 +29,7 @@ data/external/
 
 
 
+
+# Python bytecode
+__pycache__/
+*.pyc

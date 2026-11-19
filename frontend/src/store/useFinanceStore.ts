@@ -49,6 +49,8 @@ import { apiFinanceService, apiInvestmentService } from '@/services/apiFinanceSe
 import { supabaseBankingService } from '@/features/banking/services/supabaseBankingService';
 import { apiPlannerService } from '@/services/apiPlannerService';
 import { apiSettingsService } from '@/services/apiSettingsService';
+import externalDataset from '@/data/externalDataset.json';
+import { useFamilyStore } from './useFamilyStore';
 import {
   calculateAccountBalance,
   calculateTotalLiquidCash,
@@ -84,8 +86,18 @@ interface FinanceState {
   notificationPreferences: NotificationPreferences;
   dismissedNotificationIds: string[];
   demoAsOf: string;
+  isDatasetActive: boolean;
+  datasetMetadata: {
+    source: string;
+    totalTransactions: number;
+    totalAccounts: number;
+    totalMembers: number;
+    loadedAt?: string;
+  } | null;
 
   // Actions
+  runDataset: () => { success: boolean; count: number; message: string };
+  clearToNullData: () => void;
   updateUserProfile: (profile: Partial<UserProfile>) => void;
   addTransaction: (tx: Omit<Transaction, 'id'>) => Transaction;
   updateTransaction: (tx: Transaction) => void;
@@ -177,6 +189,8 @@ function advanceDate(dateStr: string, frequency: RecurringFrequency): string {
   return `${nextYear}-${nextMonth}-${nextDay}`;
 }
 
+const DATASET_MODE_STORAGE_KEY = 'expenzo_dataset_mode';
+
 function loadInitialState() {
   if (typeof window === 'undefined') {
     return {
@@ -201,54 +215,107 @@ function loadInitialState() {
       notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES,
       dismissedNotificationIds: [],
       demoAsOf: DEMO_AS_OF,
+      isDatasetActive: false,
+      datasetMetadata: null,
     };
   }
 
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && parsed.version === 'v1' && parsed.data) {
-        return {
-          ...parsed.data,
-          recurringRules: parsed.data.recurringRules || INITIAL_RECURRING_RULES,
-          beneficiaries: parsed.data.beneficiaries || INITIAL_BENEFICIARIES,
-          bills: parsed.data.bills || INITIAL_BILLS,
-          cards: parsed.data.cards || INITIAL_CARDS,
-          depositSimulations: parsed.data.depositSimulations || INITIAL_DEPOSIT_SIMULATIONS,
-          loanSimulations: parsed.data.loanSimulations || INITIAL_LOAN_SIMULATIONS,
-          transferReceipts: parsed.data.transferReceipts || [],
-          notificationPreferences: parsed.data.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES,
-          dismissedNotificationIds: parsed.data.dismissedNotificationIds || [],
-        };
+  const mode = localStorage.getItem(DATASET_MODE_STORAGE_KEY);
+
+  // If user previously clicked "Run Dataset"
+  if (mode === 'loaded') {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.version === 'v1' && parsed.data && parsed.data.transactions?.length > 0) {
+          return {
+            ...parsed.data,
+            isDatasetActive: true,
+            datasetMetadata: parsed.data.datasetMetadata || {
+              source: externalDataset.metadata.source,
+              totalTransactions: parsed.data.transactions.length,
+              totalAccounts: parsed.data.accounts?.length || 19,
+              totalMembers: 4,
+              loadedAt: new Date().toISOString(),
+            },
+          };
+        }
       }
+    } catch (e) {
+      console.warn('Could not read stored dataset from localStorage.', e);
     }
-  } catch (e) {
-    console.warn('Could not read demo finance store from localStorage, using seeds.', e);
   }
 
+  // If explicitly in demo mode (for unit tests / test runs)
+  if (mode === 'demo') {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.version === 'v1' && parsed.data) {
+          return {
+            ...parsed.data,
+            isDatasetActive: false,
+            datasetMetadata: null,
+          };
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read demo finance store from localStorage.', e);
+    }
+    return {
+      user: INITIAL_USER,
+      accounts: INITIAL_ACCOUNTS,
+      transactions: INITIAL_TRANSACTIONS,
+      categories: INITIAL_CATEGORIES,
+      budgets: INITIAL_BUDGETS,
+      goals: INITIAL_GOALS,
+      recurringRules: INITIAL_RECURRING_RULES,
+      beneficiaries: INITIAL_BENEFICIARIES,
+      bills: INITIAL_BILLS,
+      cards: INITIAL_CARDS,
+      depositSimulations: INITIAL_DEPOSIT_SIMULATIONS,
+      loanSimulations: INITIAL_LOAN_SIMULATIONS,
+      transferReceipts: [],
+      quotes: INITIAL_STOCK_QUOTES,
+      holdings: INITIAL_HOLDINGS,
+      watchlists: INITIAL_WATCHLISTS,
+      insights: INITIAL_INSIGHTS,
+      notifications: INITIAL_NOTIFICATIONS,
+      notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES,
+      dismissedNotificationIds: [],
+      demoAsOf: DEMO_AS_OF,
+      isDatasetActive: false,
+      datasetMetadata: null,
+    };
+  }
+
+  // DEFAULT FOR WEBSITE VISITORS: NULL DATA MODE (Empty State)
   return {
     user: INITIAL_USER,
-    accounts: INITIAL_ACCOUNTS,
-    transactions: INITIAL_TRANSACTIONS,
+    accounts: [],
+    transactions: [],
     categories: INITIAL_CATEGORIES,
-    budgets: INITIAL_BUDGETS,
-    goals: INITIAL_GOALS,
-    recurringRules: INITIAL_RECURRING_RULES,
-    beneficiaries: INITIAL_BENEFICIARIES,
-    bills: INITIAL_BILLS,
-    cards: INITIAL_CARDS,
-    depositSimulations: INITIAL_DEPOSIT_SIMULATIONS,
-    loanSimulations: INITIAL_LOAN_SIMULATIONS,
+    budgets: [],
+    goals: [],
+    recurringRules: [],
+    beneficiaries: [],
+    bills: [],
+    cards: [],
+    depositSimulations: [],
+    loanSimulations: [],
     transferReceipts: [],
     quotes: INITIAL_STOCK_QUOTES,
-    holdings: INITIAL_HOLDINGS,
+    holdings: [],
     watchlists: INITIAL_WATCHLISTS,
-    insights: INITIAL_INSIGHTS,
-    notifications: INITIAL_NOTIFICATIONS,
+    insights: [],
+    notifications: [],
     notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES,
     dismissedNotificationIds: [],
     demoAsOf: DEMO_AS_OF,
+    isDatasetActive: false,
+    datasetMetadata: null,
   };
 }
 
@@ -1241,7 +1308,93 @@ export const useFinanceStore = create<FinanceState>((set, get) => {
       persistState({ ...get(), ...emptyState });
     },
 
+    runDataset: () => {
+      const datasetTxs = (externalDataset.transactions || []) as Transaction[];
+      const datasetAccounts = (externalDataset.accounts || []) as FinancialAccount[];
+
+      const budgets: Budget[] = [
+        { id: 'bgt-1', category: 'Food & Groceries', allocatedMinor: 3500000, period: 'monthly', alertThresholdPercent: 80 },
+        { id: 'bgt-2', category: 'Dining & Restaurants', allocatedMinor: 2000000, period: 'monthly', alertThresholdPercent: 80 },
+        { id: 'bgt-3', category: 'Transportation', allocatedMinor: 1500000, period: 'monthly', alertThresholdPercent: 80 },
+        { id: 'bgt-4', category: 'Utilities & Bills', allocatedMinor: 1200000, period: 'monthly', alertThresholdPercent: 80 },
+        { id: 'bgt-5', category: 'Shopping & Retail', allocatedMinor: 2500000, period: 'monthly', alertThresholdPercent: 80 },
+        { id: 'bgt-6', category: 'Health & Medical', allocatedMinor: 1000000, period: 'monthly', alertThresholdPercent: 80 },
+        { id: 'bgt-7', category: 'Entertainment & Leisure', allocatedMinor: 800000, period: 'monthly', alertThresholdPercent: 80 },
+        { id: 'bgt-8', category: 'Automotive & Fuel', allocatedMinor: 1000000, period: 'monthly', alertThresholdPercent: 80 },
+      ];
+
+      const meta = {
+        source: externalDataset.metadata.source,
+        totalTransactions: datasetTxs.length,
+        totalAccounts: datasetAccounts.length,
+        totalMembers: externalDataset.members.length,
+        loadedAt: new Date().toISOString(),
+      };
+
+      const nextState = {
+        accounts: datasetAccounts,
+        transactions: datasetTxs,
+        budgets,
+        isDatasetActive: true,
+        datasetMetadata: meta,
+      };
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(DATASET_MODE_STORAGE_KEY, 'loaded');
+      }
+
+      set(nextState);
+      persistState({ ...get(), ...nextState });
+
+      // Update Family Store
+      try {
+        useFamilyStore.getState().loadExternalDatasetMembers(externalDataset.members, datasetTxs);
+      } catch (e) {
+        console.warn('Could not update family store with dataset members:', e);
+      }
+
+      return {
+        success: true,
+        count: datasetTxs.length,
+        message: `Successfully loaded ${datasetTxs.length} transactions across ${datasetAccounts.length} card accounts from IBM Dataset!`,
+      };
+    },
+
+    clearToNullData: () => {
+      const nullState = {
+        accounts: [],
+        transactions: [],
+        budgets: [],
+        goals: [],
+        recurringRules: [],
+        bills: [],
+        cards: [],
+        holdings: [],
+        insights: [],
+        isDatasetActive: false,
+        datasetMetadata: null,
+      };
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(DATASET_MODE_STORAGE_KEY, 'null');
+        localStorage.removeItem(STORAGE_KEY);
+      }
+
+      set(nullState);
+      persistState({ ...get(), ...nullState });
+
+      try {
+        useFamilyStore.getState().clearFamilyToNull();
+      } catch (e) {
+        console.warn('Could not clear family store to null:', e);
+      }
+    },
+
     resetToDemo: () => {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(DATASET_MODE_STORAGE_KEY, 'demo');
+        localStorage.removeItem(STORAGE_KEY);
+      }
       const resetState = {
         user: INITIAL_USER,
         accounts: INITIAL_ACCOUNTS,
@@ -1264,10 +1417,9 @@ export const useFinanceStore = create<FinanceState>((set, get) => {
         notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES,
         dismissedNotificationIds: [],
         demoAsOf: DEMO_AS_OF,
+        isDatasetActive: false,
+        datasetMetadata: null,
       };
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem(STORAGE_KEY);
-      }
       set(resetState);
       persistState(resetState);
     },

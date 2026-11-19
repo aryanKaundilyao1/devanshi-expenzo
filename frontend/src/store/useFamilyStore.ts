@@ -277,6 +277,8 @@ interface FamilyState {
   ) => void;
   importIBMDatasetDemo: () => { success: boolean; count: number; message: string };
   toggleDatasetDemoMode: (enable: boolean) => void;
+  loadExternalDatasetMembers: (rawMembers: any[], datasetTxs: any[]) => void;
+  clearFamilyToNull: () => void;
   resetToInitialFamilyState: () => void;
 }
 
@@ -723,6 +725,114 @@ export const useFamilyStore = create<FamilyState>((set, get) => {
         persistState(next);
         return next;
       });
+    },
+
+    loadExternalDatasetMembers: (rawMembers: any[], datasetTxs: any[]) => {
+      const familyId = get().activeFamilyId || SEED_FAMILY_ID;
+      const members: FamilyMember[] = rawMembers.map((m: any) => ({
+        id: m.id,
+        familyId,
+        userId: m.userId,
+        name: m.name,
+        email: m.email,
+        role: m.role as 'owner' | 'member' | 'admin',
+        status: 'active' as const,
+        joinedAt: m.joinedAt,
+        knownMonthlyIncomeMinor: m.knownMonthlyIncomeMinor,
+        allocatedBudgetMinor: m.allocatedBudgetMinor,
+      }));
+
+      // Create exact-sum shared allocations from transactions marked isShared
+      const sharedTxs = datasetTxs.filter((t: any) => t.isShared && t.userId === 'user-0');
+      const sharedAllocations: SharedExpenseAllocation[] = [];
+
+      sharedTxs.forEach((tx: any) => {
+        // 50% split to Devanshi (user-0), 25% to Aarav (user-1), 25% to Priya (user-2)
+        const part0 = Math.round(tx.amountMinor * 0.50);
+        const part1 = Math.round(tx.amountMinor * 0.25);
+        const part2 = tx.amountMinor - part0 - part1; // exact-sum invariant remainder
+
+        sharedAllocations.push(
+          {
+            id: `alloc-${tx.id}-0`,
+            transactionId: tx.id,
+            familyId,
+            memberUserId: 'user-0',
+            allocatedAmountMinor: part0,
+            splitPercentage: 50.0,
+            allocationMethod: 'custom_exact',
+            notes: 'Primary household earner split',
+            createdAt: tx.date,
+          },
+          {
+            id: `alloc-${tx.id}-1`,
+            transactionId: tx.id,
+            familyId,
+            memberUserId: 'user-1',
+            allocatedAmountMinor: part1,
+            splitPercentage: 25.0,
+            allocationMethod: 'custom_exact',
+            notes: 'Secondary member split',
+            createdAt: tx.date,
+          },
+          {
+            id: `alloc-${tx.id}-2`,
+            transactionId: tx.id,
+            familyId,
+            memberUserId: 'user-2',
+            allocatedAmountMinor: part2,
+            splitPercentage: 25.0,
+            allocationMethod: 'custom_exact',
+            notes: 'Tertiary member split',
+            createdAt: tx.date,
+          }
+        );
+      });
+
+      const updatedFamily = {
+        ...get().families[0],
+        members,
+        planId: 'family' as const,
+      };
+
+      set({
+        families: [updatedFamily],
+        sharedAllocations,
+        isDatasetDemoMode: true,
+      });
+      persistState({ families: [updatedFamily], sharedAllocations, isDatasetDemoMode: true });
+    },
+
+    clearFamilyToNull: () => {
+      const familyId = get().activeFamilyId || SEED_FAMILY_ID;
+      const nullMembers: FamilyMember[] = [
+        {
+          id: 'mem-user-0',
+          familyId,
+          userId: 'user-0',
+          name: 'Devanshi Singh',
+          email: 'devanshi@expenzo.local',
+          role: 'owner',
+          status: 'active',
+          joinedAt: '2026-08-01T09:00:00Z',
+          knownMonthlyIncomeMinor: 0,
+          allocatedBudgetMinor: 0,
+        },
+      ];
+
+      const updatedFamily = {
+        ...get().families[0],
+        members: nullMembers,
+        invitations: [],
+      };
+
+      set({
+        families: [updatedFamily],
+        sharedAllocations: [],
+        householdGoals: [],
+        isDatasetDemoMode: false,
+      });
+      persistState({ families: [updatedFamily], sharedAllocations: [], householdGoals: [], isDatasetDemoMode: false });
     },
 
     resetToInitialFamilyState: () => {

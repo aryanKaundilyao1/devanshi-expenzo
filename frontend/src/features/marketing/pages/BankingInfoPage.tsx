@@ -17,16 +17,26 @@ import {
   CreditCard,
 } from 'lucide-react';
 
+import { INITIAL_ACCOUNTS, INITIAL_TRANSACTIONS } from '@/services/fixtures/seedData';
+
 export function BankingInfoPage() {
   const store = useFinanceStore();
   const [selectedAccountId, setSelectedAccountId] = useState('acct_hdfc');
 
-  const selectedAccount = store.accounts.find((a) => a.id === selectedAccountId) || store.accounts[0];
-  const balance = store.getAccountBalance(selectedAccount.id);
+  const accounts = store.accounts.length > 0 ? store.accounts : INITIAL_ACCOUNTS;
+  const transactions = store.transactions.length > 0 ? store.transactions : INITIAL_TRANSACTIONS;
+  const selectedAccount = accounts.find((a) => a.id === selectedAccountId) || accounts[0];
+  const balance = selectedAccount
+    ? store.accounts.length > 0
+      ? store.getAccountBalance(selectedAccount.id)
+      : selectedAccount.openingBalanceMinor
+    : 0;
 
-  const accountTransactions = store.transactions.filter(
-    (tx) => tx.accountId === selectedAccount.id || tx.targetAccountId === selectedAccount.id
-  );
+  const accountTransactions = selectedAccount
+    ? transactions.filter(
+        (tx) => tx.accountId === selectedAccount.id || tx.targetAccountId === selectedAccount.id
+      )
+    : [];
 
   return (
     <div className="py-12 md:py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
@@ -54,9 +64,9 @@ export function BankingInfoPage() {
 
         {/* Account Selector Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-4xl mx-auto">
-          {store.accounts.map((acc) => {
+          {accounts.map((acc) => {
             const isSelected = acc.id === selectedAccountId;
-            const currentBal = store.getAccountBalance(acc.id);
+            const currentBal = store.accounts.length > 0 ? store.getAccountBalance(acc.id) : acc.openingBalanceMinor;
 
             return (
               <button
@@ -90,10 +100,10 @@ export function BankingInfoPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 gap-2">
             <div>
               <h4 className="text-base font-bold text-slate-900 dark:text-white">
-                Ledger Movements: {selectedAccount.name}
+                Ledger Movements: {selectedAccount?.name || 'Account'}
               </h4>
               <p className="text-xs text-slate-400">
-                Opening Balance: <CurrencyDisplay minor={selectedAccount.openingBalanceMinor} />
+                Opening Balance: <CurrencyDisplay minor={selectedAccount?.openingBalanceMinor || 0} />
               </p>
             </div>
             <div className="text-right">
